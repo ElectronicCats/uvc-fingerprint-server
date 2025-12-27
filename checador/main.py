@@ -14,6 +14,9 @@ from checador.config import get_config
 from checador.database import Database
 from checador.sync import SyncWorker
 
+from checador.autopunch import AutoPunchWorker
+from checador.api import admin, calibration, punch, sync, autopunch
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -40,6 +43,10 @@ db = Database(config.database_path)
 sync_worker = SyncWorker(config, db)
 sync.set_sync_worker(sync_worker)
 
+# Initialize auto-punch worker
+autopunch_worker = AutoPunchWorker(config, db)
+autopunch.set_autopunch_worker(autopunch_worker)
+
 # Setup templates
 template_dir = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(template_dir))
@@ -49,6 +56,7 @@ app.include_router(admin.router)
 app.include_router(punch.router)
 app.include_router(sync.router)
 app.include_router(calibration.router)
+app.include_router(c.router)
 
 
 @app.on_event("startup")
@@ -62,6 +70,9 @@ async def startup():
     
     # Start sync worker
     sync_worker.start()
+
+    # Start auto-punch monitor
+    autopunch_worker.start()
     
     logger.info(f"Checador started on {config.app.host}:{config.app.port}")
 
@@ -71,6 +82,7 @@ async def shutdown():
     """Cleanup on shutdown."""
     logger.info("Shutting down Checador...")
     sync_worker.stop()
+    autopunch_worker.stop()
 
 
 @app.get("/", response_class=HTMLResponse)

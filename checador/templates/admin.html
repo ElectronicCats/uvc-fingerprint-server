@@ -190,264 +190,344 @@
 <body>
     <div class="container">
         <header>
-            <h1>🔐Admin Panel</h1>
+            <h1>🔐 Admin Panel</h1>
             <a href="/" class="back-link">← Back to Kiosk</a>
-            </header>
-<!-- Login Form -->
-    <div id="loginForm" class="login-form">
-        <h2>Admin Login</h2>
-        <input type="password" id="password" placeholder="Enter admin password">
-        <button onclick="login()">Login</button>
-        <div id="loginStatus"></div>
-    </div>
-    
-    <!-- Admin Panel -->
-    <div id="adminPanel" class="admin-panel hidden">
-        <div class="tabs">
-            <button class="tab active" onclick="showTab('enroll')">Enroll User</button>
-            <button class="tab" onclick="showTab('users')">Users</button>
-            <button class="tab" onclick="showTab('sync')">Sync</button>
+        </header>
+        
+        <!-- Login Form -->
+        <div id="loginForm" class="login-form">
+            <h2>Admin Login</h2>
+            <input type="password" id="password" placeholder="Enter admin password">
+            <button onclick="login()">Login</button>
+            <div id="loginStatus"></div>
         </div>
         
-        <!-- Enroll Tab -->
-        <div id="enrollTab" class="tab-content active">
-            <h2>Enroll New User</h2>
-            <div id="enrollForm">
-                <input type="text" id="employeeName" placeholder="Employee Name">
-                <input type="text" id="employeeCode" placeholder="Employee Code">
-                <button onclick="startEnrollment()">Start Enrollment</button>
+        <!-- Admin Panel -->
+        <div id="adminPanel" class="admin-panel hidden">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('enroll')">Enroll User</button>
+                <button class="tab" onclick="showTab('users')">Users</button>
+                <button class="tab" onclick="showTab('autopunch')">Auto-Punch</button>
+                <button class="tab" onclick="showTab('sync')">Sync</button>
             </div>
             
-            <div id="enrollmentSteps" class="enrollment-steps hidden">
-                <div class="step" id="step1">Step 1: Place finger</div>
-                <div class="step" id="step2">Step 2: Place finger again</div>
-                <div class="step" id="step3">Step 3: Place finger one more time</div>
-                <button onclick="captureSample()">Capture Sample</button>
-            </div>
-            
-            <div id="enrollStatus"></div>
-        </div>
-        
-        <!-- Users Tab -->
-        <div id="usersTab" class="tab-content">
-            <h2>Enrolled Users</h2>
-            <button onclick="loadUsers()">Refresh</button>
-            <table id="usersTable">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Employee Code</th>
-                        <th>Active</th>
-                        <th>Templates</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="usersTableBody">
-                </tbody>
-            </table>
-        </div>
-        
-        <!-- Sync Tab -->
-        <div id="syncTab" class="tab-content">
-            <h2>Server Sync</h2>
-            <div id="syncStatusDiv" class="sync-status"></div>
-            <button onclick="loadSyncStatus()">Refresh Status</button>
-            <button onclick="triggerSync()">Sync Now</button>
-            <div id="syncMessage"></div>
-        </div>
-    </div>
-</div>
-
-<script>
-    let adminToken = null;
-    let enrollUserId = null;
-    let currentSample = 0;
-    
-    async function login() {
-        const password = document.getElementById('password').value;
-        const statusDiv = document.getElementById('loginStatus');
-        
-        try {
-            const response = await fetch('/api/admin/login', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({password})
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                adminToken = data.token;
-                document.getElementById('loginForm').classList.add('hidden');
-                document.getElementById('adminPanel').classList.remove('hidden');
-            } else {
-                statusDiv.innerHTML = '<div class="status error">Invalid password</div>';
-            }
-        } catch (error) {
-            statusDiv.innerHTML = '<div class="status error">Connection error</div>';
-        }
-    }
-    
-    function showTab(tabName) {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        
-        event.target.classList.add('active');
-        document.getElementById(tabName + 'Tab').classList.add('active');
-        
-        if (tabName === 'users') loadUsers();
-        if (tabName === 'sync') loadSyncStatus();
-    }
-    
-    async function startEnrollment() {
-        const name = document.getElementById('employeeName').value;
-        const code = document.getElementById('employeeCode').value;
-        const statusDiv = document.getElementById('enrollStatus');
-        
-        if (!name || !code) {
-            statusDiv.innerHTML = '<div class="status error">Please fill all fields</div>';
-            return;
-        }
-        
-        try {
-            const response = await fetch('/api/admin/enroll/start', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name, employee_code: code, token: adminToken})
-            });
-            
-            const data = await response.json();
-            if (data.success) {
-                enrollUserId = data.user_id;
-                currentSample = 0;
-                document.getElementById('enrollForm').classList.add('hidden');
-                document.getElementById('enrollmentSteps').classList.remove('hidden');
-                document.getElementById('step1').classList.add('active');
-                statusDiv.innerHTML = '<div class="status success">User created. Ready for fingerprint capture.</div>';
-            } else {
-                statusDiv.innerHTML = '<div class="status error">' + data.message + '</div>';
-            }
-        } catch (error) {
-            statusDiv.innerHTML = '<div class="status error">Connection error</div>';
-        }
-    }
-    
-    async function captureSample() {
-        const statusDiv = document.getElementById('enrollStatus');
-        currentSample++;
-        
-        try {
-            const response = await fetch(`/api/admin/enroll/capture?user_id=${enrollUserId}&sample_number=${currentSample}&token=${adminToken}`, {
-                method: 'POST'
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                const stepDiv = document.getElementById('step' + currentSample);
-                stepDiv.classList.remove('active');
-                stepDiv.classList.add('complete');
-                stepDiv.textContent += ' ✓ (Quality: ' + data.quality + ')';
+            <!-- Enroll Tab -->
+            <div id="enrollTab" class="tab-content active">
+                <h2>Enroll New User</h2>
+                <div id="enrollForm">
+                    <input type="text" id="employeeName" placeholder="Employee Name">
+                    <input type="text" id="employeeCode" placeholder="Employee Code">
+                    <button onclick="startEnrollment()">Start Enrollment</button>
+                </div>
                 
-                if (currentSample < 3) {
-                    const nextStep = document.getElementById('step' + (currentSample + 1));
-                    nextStep.classList.add('active');
-                    statusDiv.innerHTML = '<div class="status success">Sample ' + currentSample + ' captured. Continue...</div>';
+                <div id="enrollmentSteps" class="enrollment-steps hidden">
+                    <div class="step" id="step1">Step 1: Place finger</div>
+                    <div class="step" id="step2">Step 2: Place finger again</div>
+                    <div class="step" id="step3">Step 3: Place finger one more time</div>
+                    <button onclick="captureSample()">Capture Sample</button>
+                </div>
+                
+                <div id="enrollStatus"></div>
+            </div>
+            
+            <!-- Users Tab -->
+            <div id="usersTab" class="tab-content">
+                <h2>Enrolled Users</h2>
+                <button onclick="loadUsers()">Refresh</button>
+                <table id="usersTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Employee Code</th>
+                            <th>Active</th>
+                            <th>Templates</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Auto-Punch Tab -->
+            <div id="autopunchTab" class="tab-content">
+                <h2>Auto-Punch Mode</h2>
+                <p>Automatically detect and process fingerprints when placed on sensor.</p>
+                
+                <div id="autopunchStatusDiv" class="sync-status">
+                    <p><strong>Status:</strong> <span id="autopunchStatus">Loading...</span></p>
+                    <p><strong>Cooldown:</strong> <span id="autopunchCooldown">-</span> seconds</p>
+                </div>
+                
+                <button id="toggleAutopunchBtn" onclick="toggleAutopunch()">Enable Auto-Punch</button>
+                <button onclick="loadAutopunchStatus()">Refresh Status</button>
+                
+                <div id="autopunchMessage"></div>
+                
+                <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 5px;">
+                    <h3>How Auto-Punch Works:</h3>
+                    <ul style="text-align: left; margin-left: 20px;">
+                        <li>Camera continuously monitors for finger placement</li>
+                        <li>When finger detected, automatically captures and matches</li>
+                        <li>Records punch (IN/OUT) without clicking button</li>
+                        <li>Audio beeps indicate success/error</li>
+                        <li>5 second cooldown between punches</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Sync Tab -->
+            <div id="syncTab" class="tab-content">
+                <h2>Server Sync</h2>
+                <div id="syncStatusDiv" class="sync-status"></div>
+                <button onclick="loadSyncStatus()">Refresh Status</button>
+                <button onclick="triggerSync()">Sync Now</button>
+                <div id="syncMessage"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let adminToken = null;
+        let enrollUserId = null;
+        let currentSample = 0;
+        let autopunchEnabled = false;
+        
+        async function login() {
+            const password = document.getElementById('password').value;
+            const statusDiv = document.getElementById('loginStatus');
+            
+            try {
+                const response = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({password})
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    adminToken = data.token;
+                    document.getElementById('loginForm').classList.add('hidden');
+                    document.getElementById('adminPanel').classList.remove('hidden');
                 } else {
-                    statusDiv.innerHTML = '<div class="status success">Enrollment complete!</div>';
-                    setTimeout(() => {
-                        document.getElementById('enrollForm').classList.remove('hidden');
-                        document.getElementById('enrollmentSteps').classList.add('hidden');
-                        document.getElementById('employeeName').value = '';
-                        document.getElementById('employeeCode').value = '';
-                        document.querySelectorAll('.step').forEach(s => {
-                            s.classList.remove('active', 'complete');
-                        });
-                    }, 2000);
+                    statusDiv.innerHTML = '<div class="status error">Invalid password</div>';
                 }
-            } else {
-                statusDiv.innerHTML = '<div class="status error">' + data.message + '</div>';
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">Connection error</div>';
+            }
+        }
+        
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            if (tabName === 'users') loadUsers();
+            if (tabName === 'sync') loadSyncStatus();
+            if (tabName === 'autopunch') loadAutopunchStatus();
+        }
+        
+        async function startEnrollment() {
+            const name = document.getElementById('employeeName').value;
+            const code = document.getElementById('employeeCode').value;
+            const statusDiv = document.getElementById('enrollStatus');
+            
+            if (!name || !code) {
+                statusDiv.innerHTML = '<div class="status error">Please fill all fields</div>';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/enroll/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, employee_code: code, token: adminToken})
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    enrollUserId = data.user_id;
+                    currentSample = 0;
+                    document.getElementById('enrollForm').classList.add('hidden');
+                    document.getElementById('enrollmentSteps').classList.remove('hidden');
+                    document.getElementById('step1').classList.add('active');
+                    statusDiv.innerHTML = '<div class="status success">User created. Ready for fingerprint capture.</div>';
+                } else {
+                    statusDiv.innerHTML = '<div class="status error">' + data.message + '</div>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">Connection error</div>';
+            }
+        }
+        
+        async function captureSample() {
+            const statusDiv = document.getElementById('enrollStatus');
+            currentSample++;
+            
+            try {
+                const response = await fetch(`/api/admin/enroll/capture?user_id=${enrollUserId}&sample_number=${currentSample}&token=${adminToken}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const stepDiv = document.getElementById('step' + currentSample);
+                    stepDiv.classList.remove('active');
+                    stepDiv.classList.add('complete');
+                    stepDiv.textContent += ' ✓ (Quality: ' + data.quality + ')';
+                    
+                    if (currentSample < 3) {
+                        const nextStep = document.getElementById('step' + (currentSample + 1));
+                        nextStep.classList.add('active');
+                        statusDiv.innerHTML = '<div class="status success">Sample ' + currentSample + ' captured. Continue...</div>';
+                    } else {
+                        statusDiv.innerHTML = '<div class="status success">Enrollment complete!</div>';
+                        setTimeout(() => {
+                            document.getElementById('enrollForm').classList.remove('hidden');
+                            document.getElementById('enrollmentSteps').classList.add('hidden');
+                            document.getElementById('employeeName').value = '';
+                            document.getElementById('employeeCode').value = '';
+                            document.querySelectorAll('.step').forEach(s => {
+                                s.classList.remove('active', 'complete');
+                            });
+                        }, 2000);
+                    }
+                } else {
+                    statusDiv.innerHTML = '<div class="status error">' + data.message + '</div>';
+                    currentSample--;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">Connection error</div>';
                 currentSample--;
             }
-        } catch (error) {
-            statusDiv.innerHTML = '<div class="status error">Connection error</div>';
-            currentSample--;
         }
-    }
-    
-    async function loadUsers() {
-        const tbody = document.getElementById('usersTableBody');
         
-        try {
-            const response = await fetch(`/api/admin/users?token=${adminToken}`);
-            const users = await response.json();
+        async function loadUsers() {
+            const tbody = document.getElementById('usersTableBody');
             
-            tbody.innerHTML = '';
-            users.forEach(user => {
-                const row = tbody.insertRow();
-                row.innerHTML = `
-                    <td>${user.id}</td>
-                    <td>${user.name}</td>
-                    <td>${user.employee_code}</td>
-                    <td>${user.active ? 'Yes' : 'No'}</td>
-                    <td>${user.template_count}</td>
-                    <td>
-                        ${user.active ? `<button onclick="deactivateUser(${user.id})">Deactivate</button>` : ''}
-                    </td>
+            try {
+                const response = await fetch(`/api/admin/users?token=${adminToken}`);
+                const users = await response.json();
+                
+                tbody.innerHTML = '';
+                users.forEach(user => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${user.id}</td>
+                        <td>${user.name}</td>
+                        <td>${user.employee_code}</td>
+                        <td>${user.active ? 'Yes' : 'No'}</td>
+                        <td>${user.template_count}</td>
+                        <td>
+                            ${user.active ? `<button onclick="deactivateUser(${user.id})">Deactivate</button>` : ''}
+                        </td>
+                    `;
+                });
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="6">Error loading users</td></tr>';
+            }
+        }
+        
+        async function deactivateUser(userId) {
+            if (!confirm('Deactivate this user?')) return;
+            
+            try {
+                await fetch(`/api/admin/users/${userId}/deactivate?token=${adminToken}`, {
+                    method: 'POST'
+                });
+                loadUsers();
+            } catch (error) {
+                alert('Error deactivating user');
+            }
+        }
+        
+        async function loadAutopunchStatus() {
+            const statusDiv = document.getElementById('autopunchStatusDiv');
+            const statusSpan = document.getElementById('autopunchStatus');
+            const cooldownSpan = document.getElementById('autopunchCooldown');
+            const toggleBtn = document.getElementById('toggleAutopunchBtn');
+            
+            try {
+                const response = await fetch('/api/autopunch/status');
+                const data = await response.json();
+                
+                autopunchEnabled = data.enabled;
+                
+                statusSpan.textContent = data.enabled ? 'ENABLED ✓' : 'DISABLED';
+                statusSpan.style.color = data.enabled ? 'green' : 'red';
+                statusSpan.style.fontWeight = 'bold';
+                
+                cooldownSpan.textContent = data.cooldown_seconds;
+                
+                toggleBtn.textContent = data.enabled ? 'Disable Auto-Punch' : 'Enable Auto-Punch';
+                toggleBtn.style.background = data.enabled ? '#dc3545' : '#28a745';
+                
+            } catch (error) {
+                statusDiv.innerHTML = '<p>Error loading auto-punch status</p>';
+            }
+        }
+        
+        async function toggleAutopunch() {
+            const msgDiv = document.getElementById('autopunchMessage');
+            const action = autopunchEnabled ? 'disable' : 'enable';
+            
+            try {
+                const response = await fetch(`/api/autopunch/${action}?token=${adminToken}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                msgDiv.innerHTML = `<div class="status ${data.success ? 'success' : 'error'}">${data.message}</div>`;
+                
+                setTimeout(() => {
+                    loadAutopunchStatus();
+                    msgDiv.innerHTML = '';
+                }, 1000);
+                
+            } catch (error) {
+                msgDiv.innerHTML = '<div class="status error">Connection error</div>';
+            }
+        }
+        
+        async function loadSyncStatus() {
+            const statusDiv = document.getElementById('syncStatusDiv');
+            
+            try {
+                const response = await fetch('/api/sync/status');
+                const data = await response.json();
+                
+                statusDiv.innerHTML = `
+                    <p><strong>Enabled:</strong> ${data.enabled ? 'Yes' : 'No'}</p>
+                    <p><strong>Running:</strong> ${data.running ? 'Yes' : 'No'}</p>
+                    ${data.server_url ? `<p><strong>Server:</strong> ${data.server_url}</p>` : ''}
+                    <p><strong>Unsynced Punches:</strong> ${data.unsynced_count}</p>
                 `;
-            });
-        } catch (error) {
-            tbody.innerHTML = '<tr><td colspan="6">Error loading users</td></tr>';
+            } catch (error) {
+                statusDiv.innerHTML = '<p>Error loading sync status</p>';
+            }
         }
-    }
-    
-    async function deactivateUser(userId) {
-        if (!confirm('Deactivate this user?')) return;
         
-        try {
-            await fetch(`/api/admin/users/${userId}/deactivate?token=${adminToken}`, {
-                method: 'POST'
-            });
-            loadUsers();
-        } catch (error) {
-            alert('Error deactivating user');
-        }
-    }
-    
-    async function loadSyncStatus() {
-        const statusDiv = document.getElementById('syncStatusDiv');
-        
-        try {
-            const response = await fetch('/api/sync/status');
-            const data = await response.json();
+        async function triggerSync() {
+            const msgDiv = document.getElementById('syncMessage');
             
-            statusDiv.innerHTML = `
-                <p><strong>Enabled:</strong> ${data.enabled ? 'Yes' : 'No'}</p>
-                <p><strong>Running:</strong> ${data.running ? 'Yes' : 'No'}</p>
-                ${data.server_url ? `<p><strong>Server:</strong> ${data.server_url}</p>` : ''}
-                <p><strong>Unsynced Punches:</strong> ${data.unsynced_count}</p>
-            `;
-        } catch (error) {
-            statusDiv.innerHTML = '<p>Error loading sync status</p>';
+            try {
+                const response = await fetch(`/api/sync/trigger?token=${adminToken}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                msgDiv.innerHTML = `<div class="status ${data.success ? 'success' : 'error'}">${data.message}</div>`;
+                setTimeout(() => loadSyncStatus(), 1000);
+            } catch (error) {
+                msgDiv.innerHTML = '<div class="status error">Connection error</div>';
+            }
         }
-    }
-    
-    async function triggerSync() {
-        const msgDiv = document.getElementById('syncMessage');
-        
-        try {
-            const response = await fetch(`/api/sync/trigger?token=${adminToken}`, {
-                method: 'POST'
-            });
-            const data = await response.json();
-            
-            msgDiv.innerHTML = `<div class="status ${data.success ? 'success' : 'error'}">${data.message}</div>`;
-            setTimeout(() => loadSyncStatus(), 1000);
-        } catch (error) {
-            msgDiv.innerHTML = '<div class="status error">Connection error</div>';
-        }
-    }
-</script>
+    </script>
 </body>
 </html>
