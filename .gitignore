@@ -8,3 +8,9 @@ venv/
 .DS_Store
 /var/lib/checador/*
 /etc/checador/config.toml
+*.swp
+*.swo
+*~
+.pytest_cache/
+dist/
+build/

@@ -1,5 +1,4 @@
 #!/bin/bash
-# Install NBIS (NIST Biometric Image Software)
 
 set -e
 

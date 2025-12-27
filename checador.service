@@ -1,28 +1,20 @@
 [Unit]
 Description=Checador Fingerprint Time Clock
 After=network.target
-Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=arduino
+Group=arduino
 WorkingDirectory=/opt/checador
-Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=/usr/local/nbis/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONUNBUFFERED=1"
-ExecStart=/opt/checador/venv/bin/python3 -m checador.main
+ExecStart=/usr/bin/python3 -m checador.main
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=checador
-
-# Security hardening
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ReadWritePaths=/var/lib/checador /etc/checador
-ProtectHome=true
 
 [Install]
 WantedBy=multi-user.target

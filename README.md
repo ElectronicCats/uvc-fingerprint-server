@@ -22,6 +22,19 @@ Production-ready, offline-first fingerprint attendance system for headless Debia
 
 ## Installation
 
+## Quick Installation
+```bash
+# Clone repository
+git clone https://github.com/ElectronicCats/uvc-fingerprint-server.git /opt/checador
+cd /opt/checador
+
+# Run installation script
+sudo ./scripts/install.sh
+
+# Follow the on-screen instructions
+```
+
+## Detailed Installation
 ### 1. Install System Dependencies
 ```bash
 sudo apt-get update
