@@ -43,6 +43,27 @@
             margin-bottom: 30px;
         }
         
+        .autopunch-indicator {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 1.1em;
+            display: none;
+            animation: pulse 2s infinite;
+        }
+        
+        .autopunch-indicator.active {
+            display: block;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.02); }
+        }
+        
         .status {
             font-size: 1.2em;
             margin-bottom: 30px;
@@ -50,23 +71,29 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 20px;
+            border-radius: 10px;
         }
         
         .status.waiting {
             color: #666;
+            background: #f8f9fa;
         }
         
         .status.processing {
-            color: #ffa500;
+            color: #856404;
+            background: #fff3cd;
         }
         
         .status.success {
             color: #28a745;
             font-weight: bold;
+            background: #d4edda;
         }
         
         .status.error {
             color: #dc3545;
+            background: #f8d7da;
         }
         
         .punch-button {
@@ -94,6 +121,10 @@
             background: #ccc;
             cursor: not-allowed;
             transform: none;
+        }
+        
+        .punch-button.hidden {
+            display: none;
         }
         
         .result-card {
@@ -171,6 +202,20 @@
                 transform: translateY(0);
             }
         }
+        
+        .last-punch-info {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .last-punch-info.show {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -180,6 +225,10 @@
         <h1>⏱️ Checador</h1>
         <div class="device-id">Device: {{ device_id }}</div>
         
+        <div id="autopunchIndicator" class="autopunch-indicator">
+            🤖 AUTO-PUNCH ACTIVE - Just place your finger!
+        </div>
+        
         <div id="status" class="status waiting">
             Place your finger to punch in or out
         </div>
@@ -187,6 +236,10 @@
         <button id="punchBtn" class="punch-button">
             👆 Punch Now
         </button>
+        
+        <div id="lastPunchInfo" class="last-punch-info">
+            Last punch: <span id="lastPunchText"></span>
+        </div>
         
         <div id="resultCard" class="result-card">
             <h2>Punch Recorded!</h2>
@@ -209,6 +262,12 @@
         const userName = document.getElementById('userName');
         const punchType = document.getElementById('punchType');
         const matchScore = document.getElementById('matchScore');
+        const autopunchIndicator = document.getElementById('autopunchIndicator');
+        const lastPunchInfo = document.getElementById('lastPunchInfo');
+        const lastPunchText = document.getElementById('lastPunchText');
+        
+        let autopunchEnabled = false;
+        let lastCheckTime = Date.now();
         
         async function punch() {
             try {
@@ -225,45 +284,105 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    status.className = 'status success';
-                    status.textContent = '✓ ' + data.message;
-                    
-                    userName.textContent = data.user_name;
-                    punchType.textContent = data.punch_type;
-                    punchType.className = data.punch_type === 'IN' ? 'punch-type-in' : 'punch-type-out';
-                    matchScore.textContent = data.match_score;
-                    
-                    resultCard.classList.add('show');
-                    
-                    setTimeout(() => {
-                        status.className = 'status waiting';
-                        status.textContent = 'Place your finger to punch in or out';
-                        resultCard.classList.remove('show');
-                        punchBtn.disabled = false;
-                    }, 5000);
+                    showSuccess(data);
                 } else {
-                    status.className = 'status error';
-                    status.textContent = '✗ ' + data.message;
-                    
-                    setTimeout(() => {
-                        status.className = 'status waiting';
-                        status.textContent = 'Place your finger to punch in or out';
-                        punchBtn.disabled = false;
-                    }, 3000);
+                    showError(data.message);
                 }
             } catch (error) {
-                status.className = 'status error';
-                status.textContent = '✗ Connection error';
-                
-                setTimeout(() => {
-                    status.className = 'status waiting';
-                    status.textContent = 'Place your finger to punch in or out';
-                    punchBtn.disabled = false;
-                }, 3000);
+                showError('Connection error');
             }
         }
         
+        function showSuccess(data) {
+            status.className = 'status success';
+            status.textContent = '✓ Punch Recorded!';
+            
+            userName.textContent = data.user_name;
+            punchType.textContent = data.punch_type;
+            punchType.className = data.punch_type === 'IN' ? 'punch-type-in' : 'punch-type-out';
+            matchScore.textContent = data.match_score;
+            
+            resultCard.classList.add('show');
+            
+            // Update last punch info
+            const now = new Date().toLocaleTimeString();
+            lastPunchText.textContent = `${data.user_name} - ${data.punch_type} at ${now}`;
+            lastPunchInfo.classList.add('show');
+            
+            setTimeout(() => {
+                resetStatus();
+            }, 5000);
+        }
+        
+        function showError(message) {
+            status.className = 'status error';
+            status.textContent = '✗ ' + message;
+            
+            setTimeout(() => {
+                resetStatus();
+            }, 3000);
+        }
+        
+        function resetStatus() {
+            status.className = 'status waiting';
+            status.textContent = autopunchEnabled ? 
+                'Auto-punch active - just place your finger' : 
+                'Place your finger to punch in or out';
+            resultCard.classList.remove('show');
+            punchBtn.disabled = false;
+        }
+        
         punchBtn.addEventListener('click', punch);
+        
+        // Check auto-punch status
+        async function checkAutopunchStatus() {
+            try {
+                const response = await fetch('/api/autopunch/status');
+                const data = await response.json();
+                
+                autopunchEnabled = data.enabled;
+                
+                if (data.enabled) {
+                    autopunchIndicator.classList.add('active');
+                    punchBtn.classList.add('hidden');
+                    status.textContent = 'Auto-punch active - just place your finger';
+                } else {
+                    autopunchIndicator.classList.remove('active');
+                    punchBtn.classList.remove('hidden');
+                    status.textContent = 'Place your finger to punch in or out';
+                }
+            } catch (error) {
+                console.log('Could not check autopunch status');
+            }
+        }
+        
+        // Poll for new punches when autopunch is enabled
+        let lastPunchId = 0;
+        
+        async function pollForNewPunches() {
+            if (!autopunchEnabled) return;
+            
+            // Only check every 2 seconds to avoid overwhelming the server
+            const now = Date.now();
+            if (now - lastCheckTime < 2000) return;
+            lastCheckTime = now;
+            
+            try {
+                // This is a simple approach - in production you'd use WebSockets or SSE
+                // For now, we'll just show the autopunch indicator
+            } catch (error) {
+                console.log('Error polling for punches');
+            }
+        }
+        
+        // Initialize
+        checkAutopunchStatus();
+        
+        // Check autopunch status every 5 seconds
+        setInterval(checkAutopunchStatus, 5000);
+        
+        // Poll for punches every 2 seconds when autopunch is active
+        setInterval(pollForNewPunches, 2000);
     </script>
 </body>
 </html>
