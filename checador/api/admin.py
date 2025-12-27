@@ -162,7 +162,7 @@ async def start_enrollment(request: EnrollRequest):
         return EnrollResponse(
             success=True,
             user_id=user.id,
-            message="User created, ready for fingerprint capture"
+            message="User created, ready for fingerprint capture",
             required_templates=config.fingerprint.required_templates
         )
         
