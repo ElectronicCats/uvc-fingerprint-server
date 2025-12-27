@@ -2,11 +2,13 @@
 
 import logging
 import secrets
-from datetime import datetime
+from collections import defaultdict
+from datetime import datetime, timedelta
 from pathlib import Path
+from time import time
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 
 from checador.auth import AuthManager
@@ -57,30 +59,69 @@ class UserResponse(BaseModel):
     template_count: int
 
 
-# Simple token store (in production, use JWT or sessions)
+# Token store with expiration
+TOKEN_EXPIRY_HOURS = 8
 active_tokens: Dict[str, datetime] = {}
+
+# Simple rate limiting for login
+login_attempts: Dict[str, List[float]] = defaultdict(list)
+MAX_LOGIN_ATTEMPTS = 5
+LOGIN_WINDOW_SECONDS = 60
+
+
+def check_rate_limit(ip: str) -> bool:
+    """Check if IP has exceeded login rate limit."""
+    now = time()
+    # Clean old attempts
+    login_attempts[ip] = [t for t in login_attempts[ip] if now - t < LOGIN_WINDOW_SECONDS]
+    
+    # Check limit
+    if len(login_attempts[ip]) >= MAX_LOGIN_ATTEMPTS:
+        return False
+    
+    # Record attempt
+    login_attempts[ip].append(now)
+    return True
 
 
 def verify_token(token: str) -> bool:
-    """Verify admin token."""
-    return token in active_tokens
+    """Verify admin token and check expiration."""
+    if token not in active_tokens:
+        return False
+    
+    # Check if expired
+    if datetime.utcnow() > active_tokens[token]:
+        logger.info("Token expired, removing")
+        del active_tokens[token]
+        return False
+    
+    return True
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(request: LoginRequest):
-    """Admin login."""
+async def login(request: Request, login_data: LoginRequest):
+    """Admin login with rate limiting and session expiration."""
+    # Rate limiting
+    client_ip = request.client.host
+    if not check_rate_limit(client_ip):
+        logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Please wait."
+        )
+    
     config = get_config()
     auth = AuthManager(config)
     
-    if auth.verify_password(request.password):
-        # Generate token
+    if auth.verify_password(login_data.password):
+        # Generate token with expiration
         token = secrets.token_urlsafe(32)
-        active_tokens[token] = datetime.utcnow()
+        active_tokens[token] = datetime.utcnow() + timedelta(hours=TOKEN_EXPIRY_HOURS)
         
-        logger.info("Admin login successful")
+        logger.info(f"Admin login successful from {client_ip}")
         return LoginResponse(success=True, token=token)
     
-    logger.warning("Admin login failed")
+    logger.warning(f"Admin login failed from {client_ip}")
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid password"

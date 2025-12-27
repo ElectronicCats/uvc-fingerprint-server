@@ -35,27 +35,8 @@ sudo apt-get install -y \
 ```
 
 ### 2. Install NBIS (NIST Biometric Image Software)
-```bash
-# Download and install NBIS
-cd /tmp
-wget https://nigos.nist.gov/nist/nbis/nbis_v5_0_0.zip
-unzip nbis_v5_0_0.zip
-cd Rel_5.0.0
 
-# Build and install
-./setup.sh /usr/local/nbis --without-X11
-make config
-make it
-sudo make install
-
-# Add to PATH
-echo 'export PATH=$PATH:/usr/local/nbis/bin' | sudo tee -a /etc/profile.d/nbis.sh
-source /etc/profile.d/nbis.sh
-
-# Verify installation
-mindtct -version
-bozorth3 -version
-```
+Run script "install_nbis.sh"
 
 ### 3. Clone and Install Checador
 ```bash

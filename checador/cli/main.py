@@ -13,77 +13,86 @@ from checador.database import Database
 from checador.sync import SyncWorker
 
 
-async def export_punches(args):
+def export_punches(args):
     """Export punches to CSV."""
-    config = Config(args.config)
-    db = Database(config.database_path)
-    await db.initialize()
-    
-    # Parse dates
-    start_date = datetime.fromisoformat(args.start) if args.start else None
-    end_date = datetime.fromisoformat(args.end) if args.end else None
-    
-    # Get punches
-    punches = await db.get_punches(start_date=start_date, end_date=end_date)
-    
-    # Write CSV
-    output_path = Path(args.output)
-    with open(output_path, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            'Punch ID', 'Employee Code', 'Name', 'Timestamp Local',
-            'Timestamp UTC', 'Type', 'Match Score', 'Device ID', 'Synced'
-        ])
+    async def _export():
+        config = Config(args.config)
+        db = Database(config.database_path)
+        await db.initialize()
         
-        for punch in punches:
-            user = await db.get_user(punch.user_id)
+        # Parse dates
+        start_date = datetime.fromisoformat(args.start) if args.start else None
+        end_date = datetime.fromisoformat(args.end) if args.end else None
+        
+        # Get punches
+        punches = await db.get_punches(start_date=start_date, end_date=end_date)
+        
+        # Write CSV
+        output_path = Path(args.output)
+        with open(output_path, 'w', newline='') as f:
+            writer = csv.writer(f)
             writer.writerow([
-                punch.id,
-                user.employee_code if user else '',
-                user.name if user else '',
-                punch.timestamp_local.isoformat(),
-                punch.timestamp_utc.isoformat(),
-                punch.punch_type,
-                punch.match_score,
-                punch.device_id,
-                'Yes' if punch.synced else 'No'
+                'Punch ID', 'Employee Code', 'Name', 'Timestamp Local',
+                'Timestamp UTC', 'Type', 'Match Score', 'Device ID', 'Synced'
             ])
+            
+            for punch in punches:
+                user = await db.get_user(punch.user_id)
+                writer.writerow([
+                    punch.id,
+                    user.employee_code if user else '',
+                    user.name if user else '',
+                    punch.timestamp_local.isoformat(),
+                    punch.timestamp_utc.isoformat(),
+                    punch.punch_type,
+                    punch.match_score,
+                    punch.device_id,
+                    'Yes' if punch.synced else 'No'
+                ])
+        
+        print(f"Exported {len(punches)} punches to {output_path}")
     
-    print(f"Exported {len(punches)} punches to {output_path}")
+    asyncio.run(_export())
 
 
-async def list_users(args):
+def list_users(args):
     """List all users."""
-    config = Config(args.config)
-    db = Database(config.database_path)
-    await db.initialize()
+    async def _list():
+        config = Config(args.config)
+        db = Database(config.database_path)
+        await db.initialize()
+        
+        users = await db.list_users(active_only=not args.all)
+        
+        print(f"\n{'ID':<6} {'Code':<15} {'Name':<30} {'Active':<8} {'Templates':<10}")
+        print("-" * 75)
+        
+        for user in users:
+            templates = await db.get_user_templates(user.id)
+            print(f"{user.id:<6} {user.employee_code:<15} {user.name:<30} "
+                  f"{'Yes' if user.active else 'No':<8} {len(templates):<10}")
+        
+        print(f"\nTotal: {len(users)} users")
     
-    users = await db.list_users(active_only=not args.all)
-    
-    print(f"\n{'ID':<6} {'Code':<15} {'Name':<30} {'Active':<8} {'Templates':<10}")
-    print("-" * 75)
-    
-    for user in users:
-        templates = await db.get_user_templates(user.id)
-        print(f"{user.id:<6} {user.employee_code:<15} {user.name:<30} "
-              f"{'Yes' if user.active else 'No':<8} {len(templates):<10}")
-    
-    print(f"\nTotal: {len(users)} users")
+    asyncio.run(_list())
 
 
-async def deactivate_user(args):
+def deactivate_user(args):
     """Deactivate a user."""
-    config = Config(args.config)
-    db = Database(config.database_path)
-    await db.initialize()
+    async def _deactivate():
+        config = Config(args.config)
+        db = Database(config.database_path)
+        await db.initialize()
+        
+        user = await db.get_user_by_code(args.employee_code)
+        if not user:
+            print(f"User not found: {args.employee_code}")
+            return
+        
+        await db.deactivate_user(user.id)
+        print(f"User deactivated: {user.name} ({user.employee_code})")
     
-    user = await db.get_user_by_code(args.employee_code)
-    if not user:
-        print(f"User not found: {args.employee_code}")
-        return
-    
-    await db.deactivate_user(user.id)
-    print(f"User deactivated: {user.name} ({user.employee_code})")
+    asyncio.run(_deactivate())
 
 
 def test_camera(args):
@@ -111,21 +120,24 @@ def test_camera(args):
         print("\n✗ Camera issues detected")
 
 
-async def sync_now(args):
+def sync_now(args):
     """Trigger sync now."""
-    config = Config(args.config)
-    db = Database(config.database_path)
-    await db.initialize()
+    async def _sync():
+        config = Config(args.config)
+        db = Database(config.database_path)
+        await db.initialize()
+        
+        sync_worker = SyncWorker(config, db)
+        
+        print("Syncing punches...")
+        success = await sync_worker.sync_now()
+        
+        if success:
+            print("✓ Sync completed successfully")
+        else:
+            print("✗ Sync failed")
     
-    sync_worker = SyncWorker(config, db)
-    
-    print("Syncing punches...")
-    success = await sync_worker.sync_now()
-    
-    if success:
-        print("✓ Sync completed successfully")
-    else:
-        print("✗ Sync failed")
+    asyncio.run(_sync())
 
 
 def main():
@@ -172,19 +184,26 @@ def main():
         return
     
     # Route commands
-    if args.command == 'export':
-        asyncio.run(export_punches(args))
-    elif args.command == 'users':
-        if args.users_command == 'list':
-            asyncio.run(list_users(args))
-        elif args.users_command == 'deactivate':
-            asyncio.run(deactivate_user(args))
-    elif args.command == 'camera':
-        if args.camera_command == 'test':
-            test_camera(args)
-    elif args.command == 'sync':
-        if args.sync_command == 'now':
-            asyncio.run(sync_now(args))
+    try:
+        if args.command == 'export':
+            export_punches(args)
+        elif args.command == 'users':
+            if args.users_command == 'list':
+                list_users(args)
+            elif args.users_command == 'deactivate':
+                deactivate_user(args)
+        elif args.command == 'camera':
+            if args.camera_command == 'test':
+                test_camera(args)
+        elif args.command == 'sync':
+            if args.sync_command == 'now':
+                sync_now(args)
+    except KeyboardInterrupt:
+        print("\nInterrupted")
+        sys.exit(130)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
 
 if __name__ == '__main__':

@@ -3,7 +3,7 @@
 import logging
 
 from fastapi import APIRouter, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from checador.camera import CameraManager
 from checador.config import get_config
@@ -18,6 +18,20 @@ class ROIRequest(BaseModel):
     y: int
     width: int
     height: int
+    
+    @field_validator('x', 'y')
+    @classmethod
+    def validate_position(cls, v):
+        if v < 0 or v > 1920:
+            raise ValueError('Position must be between 0 and 1920')
+        return v
+    
+    @field_validator('width', 'height')
+    @classmethod
+    def validate_size(cls, v):
+        if v < 10 or v > 1920:
+            raise ValueError('Size must be between 10 and 1920')
+        return v
 
 
 @router.get("/stream")
@@ -35,7 +49,7 @@ async def video_stream():
 
 @router.post("/roi")
 async def set_roi(roi: ROIRequest):
-    """Set camera ROI."""
+    """Set camera ROI - validation happens automatically via pydantic."""
     config = get_config()
     
     # Update config
