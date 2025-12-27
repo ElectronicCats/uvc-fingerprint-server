@@ -33,9 +33,8 @@ class CameraManager:
                 return False
             
             # Set camera properties
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.camera.width)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.camera.height)
-            self.cap.set(cv2.CAP_PROP_FPS, self.config.camera.fps)
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.camera.resolution_width)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.camera.resolution_height)
             
             self._is_open = True
             logger.info("Camera opened successfully")
@@ -52,82 +51,64 @@ class CameraManager:
             self._is_open = False
             logger.info("Camera closed")
     
-    def is_open(self) -> bool:
-        """Check if camera is open."""
-        return self._is_open and self.cap is not None and self.cap.isOpened()
-    
     def capture_frame(self) -> Optional[np.ndarray]:
         """Capture a single frame from camera."""
-        if not self.is_open():
+        if not self._is_open:
             if not self.open():
                 return None
         
-        try:
-            ret, frame = self.cap.read()
-            if not ret:
-                logger.warning("Failed to read frame")
-                self._is_open = False
-                return None
-            
-            return frame
-            
-        except Exception as e:
-            logger.error(f"Error capturing frame: {e}")
-            self._is_open = False
+        ret, frame = self.cap.read()
+        if not ret:
+            logger.error("Failed to capture frame")
             return None
+        
+        return frame
     
-    def capture_roi(self) -> Optional[np.ndarray]:
+    def get_roi_frame(self) -> Optional[np.ndarray]:
         """Capture frame and extract ROI."""
         frame = self.capture_frame()
         if frame is None:
             return None
         
         # Extract ROI
-        x = self.config.camera.roi_x
-        y = self.config.camera.roi_y
-        w = self.config.camera.roi_width
-        h = self.config.camera.roi_height
+        roi = self.config.camera
+        x, y, w, h = roi.roi_x, roi.roi_y, roi.roi_width, roi.roi_height
         
-        # Validate ROI bounds
+        # Validate ROI
         height, width = frame.shape[:2]
-        if x < 0 or y < 0 or x + w > width or y + h > height:
-            logger.warning(f"Invalid ROI bounds: ({x},{y},{w},{h}) for frame {width}x{height}")
-            return frame  # Return full frame as fallback
+        if x + w > width or y + h > height:
+            logger.warning(f"ROI exceeds frame bounds, using full frame")
+            return frame
         
-        roi = frame[y:y+h, x:x+w]
-        return roi
+        return frame[y:y+h, x:x+w]
     
     def capture_fingerprint(self, output_path: Path) -> Tuple[bool, Optional[str]]:
         """
-        Capture fingerprint image and save as grayscale PNG.
+        Capture fingerprint image and save to disk.
         
         Returns:
             (success, error_message)
         """
         try:
-            roi = self.capture_roi()
-            if roi is None:
-                return False, "Failed to capture frame from camera"
+            roi_frame = self.get_roi_frame()
+            if roi_frame is None:
+                return False, "Failed to capture frame"
             
-            # Convert to grayscale
-            if len(roi.shape) == 3:
-                gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            # Convert to grayscale for NBIS (requires 8-bit depth)
+            if len(roi_frame.shape) == 3:
+                gray_frame = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2GRAY)
             else:
-                gray = roi
+                gray_frame = roi_frame
             
-            # Save as PNG
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            success = cv2.imwrite(str(output_path), gray)
-            
-            if not success:
-                return False, "Failed to save image"
-            
+            # Save image
+            cv2.imwrite(str(output_path), gray_frame)
             logger.info(f"Fingerprint image saved: {output_path}")
             return True, None
             
         except Exception as e:
-            logger.error(f"Error capturing fingerprint: {e}")
-            return False, str(e)
+            error = f"Error capturing fingerprint: {e}"
+            logger.error(error)
+            return False, error
     
     def get_frame_jpeg(self) -> Optional[bytes]:
         """Get current frame as JPEG bytes for streaming."""
@@ -135,77 +116,54 @@ class CameraManager:
         if frame is None:
             return None
         
-        try:
-            # Draw ROI rectangle
-            x = self.config.camera.roi_x
-            y = self.config.camera.roi_y
-            w = self.config.camera.roi_width
-            h = self.config.camera.roi_height
-            
-            display_frame = frame.copy()
-            cv2.rectangle(display_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            
-            # Encode as JPEG
-            ret, jpeg = cv2.imencode('.jpg', display_frame)
-            if not ret:
-                return None
-            
-            return jpeg.tobytes()
-            
-        except Exception as e:
-            logger.error(f"Error encoding frame: {e}")
+        ret, jpeg = cv2.imencode('.jpg', frame)
+        if not ret:
             return None
+        
+        return jpeg.tobytes()
     
     def test_camera(self) -> dict:
-        """Test camera and return diagnostics."""
+        """Test camera and return diagnostic info."""
         result = {
             "device": self.config.camera.device,
             "accessible": False,
             "opened": False,
             "frame_captured": False,
-            "roi_valid": False,
             "resolution": None,
-            "error": None,
+            "roi_valid": False,
+            "error": None
         }
         
         try:
-            # Check device exists
+            # Check if device exists
             device_path = Path(self.config.camera.device)
-            if not device_path.exists():
-                result["error"] = f"Device not found: {self.config.camera.device}"
-                return result
+            result["accessible"] = device_path.exists()
             
-            result["accessible"] = True
+            if not result["accessible"]:
+                result["error"] = f"Device {self.config.camera.device} not found"
+                return result
             
             # Try to open
-            if not self.open():
-                result["error"] = "Failed to open camera"
-                return result
-            
-            result["opened"] = True
-            
-            # Try to capture
-            frame = self.capture_frame()
-            if frame is None:
-                result["error"] = "Failed to capture frame"
-                return result
-            
-            result["frame_captured"] = True
-            result["resolution"] = f"{frame.shape[1]}x{frame.shape[0]}"
-            
-            # Check ROI
-            x, y = self.config.camera.roi_x, self.config.camera.roi_y
-            w, h = self.config.camera.roi_width, self.config.camera.roi_height
-            
-            if x >= 0 and y >= 0 and x + w <= frame.shape[1] and y + h <= frame.shape[0]:
-                result["roi_valid"] = True
+            if self.open():
+                result["opened"] = True
+                
+                # Try to capture
+                frame = self.capture_frame()
+                if frame is not None:
+                    result["frame_captured"] = True
+                    result["resolution"] = f"{frame.shape[1]}x{frame.shape[0]}"
+                    
+                    # Validate ROI
+                    roi = self.config.camera
+                    if (roi.roi_x + roi.roi_width <= frame.shape[1] and
+                        roi.roi_y + roi.roi_height <= frame.shape[0]):
+                        result["roi_valid"] = True
+                
+                self.close()
             else:
-                result["error"] = f"ROI out of bounds: ({x},{y},{w},{h}) for {result['resolution']}"
-            
+                result["error"] = "Failed to open camera"
+                
         except Exception as e:
             result["error"] = str(e)
-        
-        finally:
-            self.close()
         
         return result

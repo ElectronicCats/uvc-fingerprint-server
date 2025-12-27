@@ -221,9 +221,7 @@
                 </div>
                 
                 <div id="enrollmentSteps" class="enrollment-steps hidden">
-                    <div class="step" id="step1">Step 1: Place finger</div>
-                    <div class="step" id="step2">Step 2: Place finger again</div>
-                    <div class="step" id="step3">Step 3: Place finger one more time</div>
+                    <div id="stepsContainer"></div>
                     <button onclick="captureSample()">Capture Sample</button>
                 </div>
                 
@@ -293,6 +291,7 @@
         let enrollUserId = null;
         let currentSample = 0;
         let autopunchEnabled = false;
+        let requiredTemplates = 3;
         
         async function login() {
             const password = document.getElementById('password').value;
@@ -353,6 +352,21 @@
                 if (data.success) {
                     enrollUserId = data.user_id;
                     currentSample = 0;
+                    
+                    // Get required templates from response
+                    requiredTemplates = data.required_templates || 3;
+                    
+                    // Generate steps dynamically
+                    const stepsContainer = document.getElementById('stepsContainer');
+                    stepsContainer.innerHTML = '';
+                    for (let i = 1; i <= requiredTemplates; i++) {
+                        const step = document.createElement('div');
+                        step.className = 'step';
+                        step.id = 'step' + i;
+                        step.textContent = `Step ${i}: Place finger`;
+                        stepsContainer.appendChild(step);
+                    }
+                    
                     document.getElementById('enrollForm').classList.add('hidden');
                     document.getElementById('enrollmentSteps').classList.remove('hidden');
                     document.getElementById('step1').classList.add('active');
@@ -382,7 +396,7 @@
                     stepDiv.classList.add('complete');
                     stepDiv.textContent += ' ✓ (Quality: ' + data.quality + ')';
                     
-                    if (currentSample < 3) {
+                    if (currentSample < requiredTemplates) {
                         const nextStep = document.getElementById('step' + (currentSample + 1));
                         nextStep.classList.add('active');
                         statusDiv.innerHTML = '<div class="status success">Sample ' + currentSample + ' captured. Continue...</div>';
@@ -393,9 +407,6 @@
                             document.getElementById('enrollmentSteps').classList.add('hidden');
                             document.getElementById('employeeName').value = '';
                             document.getElementById('employeeCode').value = '';
-                            document.querySelectorAll('.step').forEach(s => {
-                                s.classList.remove('active', 'complete');
-                            });
                         }, 2000);
                     }
                 } else {

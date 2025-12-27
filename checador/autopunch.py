@@ -74,6 +74,9 @@ class AutoPunchWorker:
     def disable(self):
         """Disable auto-punch processing."""
         self.enabled = False
+        # Release camera when disabled
+        self.camera.close()
+        self.baseline_frame = None
         logger.info("Auto-punch disabled")
     
     def _monitor_loop(self):

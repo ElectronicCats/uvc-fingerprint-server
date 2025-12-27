@@ -20,7 +20,7 @@ class AuthManager:
     def verify_password(self, password: str) -> bool:
         """Verify admin password."""
         try:
-            self.ph.verify(self.config.admin.password_hash, password)
+            self.ph.verify(self.config.app.admin_password_hash, password)
             return True
         except VerifyMismatchError:
             return False

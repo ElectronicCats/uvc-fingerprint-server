@@ -41,6 +41,7 @@ class EnrollResponse(BaseModel):
     success: bool
     user_id: Optional[int] = None
     message: str
+    required_templates: Optional[int] = None
 
 
 class CaptureResponse(BaseModel):
@@ -162,6 +163,7 @@ async def start_enrollment(request: EnrollRequest):
             success=True,
             user_id=user.id,
             message="User created, ready for fingerprint capture"
+            required_templates=config.fingerprint.required_templates
         )
         
     except Exception as e:
