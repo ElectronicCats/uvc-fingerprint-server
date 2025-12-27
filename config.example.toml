@@ -1,38 +1,51 @@
 [app]
+# Application settings
 device_id = "CHECADOR-001"
-data_dir = "/var/lib/checador"
 host = "0.0.0.0"
 port = 8000
+admin_password_hash = "$argon2id$v=19$m=65536,t=3,p=4$TxgSeSwi24LINU5fsKWMuA$qokn+8BeKKynaabg+ZpiBGInlqBnU+z4nCOMIKsLmUg"
 
 [camera]
+# Camera settings
 device = "/dev/video0"
-width = 640
-height = 480
-fps = 30
-# ROI set via calibration UI
+resolution_width = 640
+resolution_height = 480
 roi_x = 0
 roi_y = 0
 roi_width = 640
 roi_height = 480
 
 [fingerprint]
-nbis_mindtct = "/usr/local/bin/mindtct"
-nbis_bozorth3 = "/usr/local/bin/bozorth3"
-match_threshold = 40
-enrollment_samples = 3
+# Fingerprint matching settings
+mindtct_path = "/usr/local/nbis/bin/mindtct"
+bozorth3_path = "/usr/local/nbis/bin/bozorth3"
+match_threshold = 25
 min_quality_score = 20
+required_templates = 3
+
+[database]
+# Database settings
+path = "/var/lib/checador/checador.db"
+
+[storage]
+# Storage paths
+template_dir = "/var/lib/checador/templates"
+temp_dir = "/var/lib/checador/temp"
 
 [timeclock]
+# Time clock settings
 antibounce_seconds = 10
 
-[admin]
-# Generate with: python3 -c "from argon2 import PasswordHasher; print(PasswordHasher().hash('your_password'))"
-password_hash = "$argon2id$v=19$m=65536,t=3,p=4$placeholder"
-
 [server]
+# Server sync settings
 enabled = false
 url = ""
 api_key = ""
-sync_interval_seconds = 300
-retry_max_attempts = 5
-retry_backoff_base = 2
+sync_interval_minutes = 5
+
+[autopunch]
+# Auto-punch settings
+enabled_on_startup = false
+cooldown_seconds = 5
+difference_threshold = 0.15
+stable_frames = 3

@@ -34,11 +34,11 @@ class AutoPunchWorker:
         self.thread: Optional[Thread] = None
         self.stop_event = Event()
         
-        # Detection settings
-        self.cooldown_seconds = 5
+        # Detection settings from config
+        self.cooldown_seconds = config.autopunch.cooldown_seconds
         self.last_punch_time = 0
-        self.difference_threshold = 0.15  # 15% change to trigger
-        self.stable_frames = 3  # Need 3 stable frames before processing
+        self.difference_threshold = config.autopunch.difference_threshold
+        self.stable_frames = config.autopunch.stable_frames
         
         # State
         self.baseline_frame: Optional[np.ndarray] = None
