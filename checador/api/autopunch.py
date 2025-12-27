@@ -1,6 +1,7 @@
 """Auto-punch API endpoints."""
 
 import logging
+import time
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status
@@ -15,11 +16,34 @@ router = APIRouter(prefix="/api/autopunch", tags=["autopunch"])
 # Will be set by main.py
 autopunch_worker = None
 
+# Store last punch result for UI feedback
+last_punch_result = {
+    "timestamp": 0,
+    "success": False,
+    "message": "",
+    "user_name": "",
+    "punch_type": "",
+    "match_score": 0
+}
+
 
 def set_autopunch_worker(worker):
     """Set autopunch worker instance."""
     global autopunch_worker
     autopunch_worker = worker
+
+
+def update_last_punch_result(success: bool, message: str, user_name: str = "", punch_type: str = "", match_score: int = 0):
+    """Update last punch result for UI polling."""
+    global last_punch_result
+    last_punch_result = {
+        "timestamp": time.time(),
+        "success": success,
+        "message": message,
+        "user_name": user_name,
+        "punch_type": punch_type,
+        "match_score": match_score
+    }
 
 
 class AutoPunchStatusResponse(BaseModel):
@@ -37,6 +61,12 @@ async def get_status():
     
     status = autopunch_worker.get_status()
     return AutoPunchStatusResponse(**status)
+
+
+@router.get("/last-result")
+async def get_last_result():
+    """Get last punch result for UI feedback."""
+    return last_punch_result
 
 
 @router.post("/enable")

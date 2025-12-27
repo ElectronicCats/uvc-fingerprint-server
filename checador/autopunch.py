@@ -154,6 +154,9 @@ class AutoPunchWorker:
     def _process_punch(self):
         """Process fingerprint punch."""
         try:
+            # Import here to avoid circular dependency
+            from checador.api import autopunch as autopunch_api
+            
             # Capture fingerprint
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
             temp_image = self.config.temp_dir / f"autopunch_{timestamp}.png"
@@ -162,6 +165,7 @@ class AutoPunchWorker:
             if not success:
                 logger.warning(f"Auto-punch capture failed: {error}")
                 self._play_error_sound()
+                autopunch_api.update_last_punch_result(False, f"Capture failed: {error}")
                 return
             
             # Extract features
@@ -169,6 +173,7 @@ class AutoPunchWorker:
             if not success:
                 logger.warning("Auto-punch feature extraction failed")
                 self._play_error_sound()
+                autopunch_api.update_last_punch_result(False, "Feature extraction failed")
                 return
             
             # Get all templates
@@ -181,6 +186,7 @@ class AutoPunchWorker:
             if not templates:
                 logger.warning("No enrolled users")
                 self._play_error_sound()
+                autopunch_api.update_last_punch_result(False, "No enrolled users")
                 return
             
             # Build gallery
@@ -192,6 +198,7 @@ class AutoPunchWorker:
             if not match_result:
                 logger.warning("Fingerprint not recognized")
                 self._play_error_sound()
+                autopunch_api.update_last_punch_result(False, "Fingerprint not recognized")
                 return
             
             template_id, match_score = match_result
@@ -207,6 +214,7 @@ class AutoPunchWorker:
             if not user or not user.active:
                 logger.warning("User not found or inactive")
                 self._play_error_sound()
+                autopunch_api.update_last_punch_result(False, "User not found or inactive")
                 return
             
             # Record punch
@@ -220,6 +228,7 @@ class AutoPunchWorker:
             if not success:
                 logger.warning(f"Punch recording failed: {error}")
                 self._play_error_sound()
+                autopunch_api.update_last_punch_result(False, f"Punch failed: {error}")
                 return
             
             logger.info(
@@ -227,10 +236,19 @@ class AutoPunchWorker:
                 f"{punch.punch_type}, score={match_score}"
             )
             self._play_success_sound(punch.punch_type)
+            autopunch_api.update_last_punch_result(
+                True, 
+                "Punch recorded successfully",
+                user.name,
+                punch.punch_type,
+                match_score
+            )
             
         except Exception as e:
             logger.error(f"Error processing auto-punch: {e}")
             self._play_error_sound()
+            from checador.api import autopunch as autopunch_api
+            autopunch_api.update_last_punch_result(False, f"Error: {str(e)}")
     
     def _play_success_sound(self, punch_type: str):
         """Play success beep."""

@@ -202,20 +202,6 @@
                 transform: translateY(0);
             }
         }
-        
-        .last-punch-info {
-            font-size: 0.9em;
-            color: #666;
-            margin-top: 10px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 5px;
-            display: none;
-        }
-        
-        .last-punch-info.show {
-            display: block;
-        }
     </style>
 </head>
 <body>
@@ -236,10 +222,6 @@
         <button id="punchBtn" class="punch-button">
             👆 Punch Now
         </button>
-        
-        <div id="lastPunchInfo" class="last-punch-info">
-            Last punch: <span id="lastPunchText"></span>
-        </div>
         
         <div id="resultCard" class="result-card">
             <h2>Punch Recorded!</h2>
@@ -263,11 +245,9 @@
         const punchType = document.getElementById('punchType');
         const matchScore = document.getElementById('matchScore');
         const autopunchIndicator = document.getElementById('autopunchIndicator');
-        const lastPunchInfo = document.getElementById('lastPunchInfo');
-        const lastPunchText = document.getElementById('lastPunchText');
         
         let autopunchEnabled = false;
-        let lastCheckTime = Date.now();
+        let lastResultTimestamp = 0;
         
         async function punch() {
             try {
@@ -303,11 +283,6 @@
             matchScore.textContent = data.match_score;
             
             resultCard.classList.add('show');
-            
-            // Update last punch info
-            const now = new Date().toLocaleTimeString();
-            lastPunchText.textContent = `${data.user_name} - ${data.punch_type} at ${now}`;
-            lastPunchInfo.classList.add('show');
             
             setTimeout(() => {
                 resetStatus();
@@ -345,33 +320,45 @@
                 if (data.enabled) {
                     autopunchIndicator.classList.add('active');
                     punchBtn.classList.add('hidden');
-                    status.textContent = 'Auto-punch active - just place your finger';
+                    if (status.className === 'status waiting') {
+                        status.textContent = 'Auto-punch active - just place your finger';
+                    }
                 } else {
                     autopunchIndicator.classList.remove('active');
                     punchBtn.classList.remove('hidden');
-                    status.textContent = 'Place your finger to punch in or out';
+                    if (status.className === 'status waiting') {
+                        status.textContent = 'Place your finger to punch in or out';
+                    }
                 }
             } catch (error) {
                 console.log('Could not check autopunch status');
             }
         }
         
-        // Poll for new punches when autopunch is enabled
-        let lastPunchId = 0;
-        
-        async function pollForNewPunches() {
+        // Poll for new auto-punch results
+        async function checkAutopunchResult() {
             if (!autopunchEnabled) return;
             
-            // Only check every 2 seconds to avoid overwhelming the server
-            const now = Date.now();
-            if (now - lastCheckTime < 2000) return;
-            lastCheckTime = now;
-            
             try {
-                // This is a simple approach - in production you'd use WebSockets or SSE
-                // For now, we'll just show the autopunch indicator
+                const response = await fetch('/api/autopunch/last-result');
+                const data = await response.json();
+                
+                // Only show if it's a new result
+                if (data.timestamp > lastResultTimestamp && data.timestamp > 0) {
+                    lastResultTimestamp = data.timestamp;
+                    
+                    if (data.success) {
+                        showSuccess({
+                            user_name: data.user_name,
+                            punch_type: data.punch_type,
+                            match_score: data.match_score
+                        });
+                    } else {
+                        showError(data.message);
+                    }
+                }
             } catch (error) {
-                console.log('Error polling for punches');
+                console.log('Error checking autopunch result');
             }
         }
         
@@ -381,8 +368,8 @@
         // Check autopunch status every 5 seconds
         setInterval(checkAutopunchStatus, 5000);
         
-        // Poll for punches every 2 seconds when autopunch is active
-        setInterval(pollForNewPunches, 2000);
+        // Check for new results every 1 second when autopunch is active
+        setInterval(checkAutopunchResult, 1000);
     </script>
 </body>
 </html>
