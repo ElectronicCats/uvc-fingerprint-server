@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter
+from typing import Optional
 from pydantic import BaseModel
 
 from checador.camera import CameraManager

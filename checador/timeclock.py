@@ -43,7 +43,7 @@ class TimeClock:
             return False
         
         # Check time since last punch
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         time_diff = (now - last_punch.timestamp_utc).total_seconds()
         
         if time_diff < self.config.timeclock.antibounce_seconds:
@@ -73,7 +73,7 @@ class TimeClock:
             punch_type = await self.determine_punch_type(user)
             
             # Record punch
-            now_utc = datetime.now(timezone.utc)
+            now_utc = datetime.utcnow()
             now_local = datetime.now()
             
             punch = await self.db.record_punch(

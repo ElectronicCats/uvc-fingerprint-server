@@ -4,6 +4,8 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from typing import Optional
+
 
 from checador.api.admin import verify_token
 from checador.config import get_config

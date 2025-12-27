@@ -46,6 +46,9 @@
         }
         
         #videoFeed {
+            pointer-events: none;  /* ADD THIS - makes image not draggable */
+	    user-select: none;
+	    -webkit-user-drag: none;
             max-width: 100%;
             border: 2px solid #ddd;
             border-radius: 5px;
@@ -91,7 +94,7 @@
             position: absolute;
             top: 0;
             left: 0;
-            pointer-events: none;
+	    cursor: crosshair;
         }
         
         .roi-info {
