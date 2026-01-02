@@ -1,6 +1,6 @@
-# Checador - Open Source Fingerprint Time Clock
+# FreePunch - Open Source Fingerprint Time Clock
 
-Production-ready, offline-first fingerprint attendance system for headless Debian systems.
+Offline-first fingerprint attendance system for headless Debian systems.
 
 ## Features
 
