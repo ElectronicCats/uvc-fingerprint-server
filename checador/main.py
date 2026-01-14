@@ -43,6 +43,7 @@ app.include_router(calibration.router)
 app.include_router(punch.router)
 app.include_router(sync.router)
 app.include_router(autopunch.router)
+app.include_router(device.router)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="checador/static"), name="static")

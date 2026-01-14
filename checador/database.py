@@ -34,6 +34,7 @@ class User(Base):
     
     templates = relationship("Template", back_populates="user", cascade="all, delete-orphan")
     punches = relationship("Punch", back_populates="user")
+    devices = relationship("Device", back_populates="user", cascade="all, delete-orphan")
 
 
 class Template(Base):
@@ -65,6 +66,19 @@ class Punch(Base):
     sync_at = Column(DateTime, nullable=True)
     
     user = relationship("User", back_populates="punches")
+
+
+class Device(Base):
+    """Enrolled device model."""
+    __tablename__ = "devices"
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token = Column(String(100), unique=True, nullable=False)
+    name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    user = relationship("User", back_populates="devices")
 
 
 class Setting(Base):
@@ -145,17 +159,56 @@ class Database:
         """Delete a user and all associated data."""
         async with self.async_session() as session:
             user = await session.get(User, user_id)
-            if not user:
-                return False
+            if user:
+                # Manually delete punches first (no cascade on Punch)
+                await session.execute(
+                    select(Punch).where(Punch.user_id == user_id)
+                )
+                # Templates and Devices are handled by cascade
+                await session.delete(user)
+                await session.commit()
+                return True
+            return False
+
+    async def register_device(self, user_id: int, token: str, name: str) -> Optional[Device]:
+        """Register a new device for a user."""
+        async with self.async_session() as session:
+            # Check if token exists
+            result = await session.execute(select(Device).where(Device.token == token))
+            if result.scalar_one_or_none():
+                return None
             
-            # Delete punches manually (if not covered by cascade)
-            await session.execute(
-                select(Punch).where(Punch.user_id == user_id)
+            device = Device(user_id=user_id, token=token, name=name)
+            session.add(device)
+            try:
+                await session.commit()
+                await session.refresh(device)
+                return device
+            except:
+                await session.rollback()
+                return None
+
+from sqlalchemy.orm import selectinload
+
+    async def get_device_by_token(self, token: str) -> Optional[Device]:
+        """Get device by token."""
+        async with self.async_session() as session:
+            result = await session.execute(
+                select(Device)
+                .where(Device.token == token)
+                .options(selectinload(Device.user))
             )
-            # Actually delete
-            await session.delete(user)
-            await session.commit()
-            return True
+            return result.scalar_one_or_none()
+
+    async def delete_device(self, device_id: int) -> bool:
+        """Delete a device."""
+        async with self.async_session() as session:
+            device = await session.get(Device, device_id)
+            if device:
+                await session.delete(device)
+                await session.commit()
+                return True
+            return False
     
     async def add_template(
         self, user_id: int, template_path: str, quality: int

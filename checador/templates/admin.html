@@ -235,6 +235,7 @@
                 <button class="tab" onclick="showTab('users')">Users</button>
                 <button class="tab" onclick="showTab('autopunch')">Auto-Punch</button>
                 <button class="tab" onclick="showTab('sync')">Sync</button>
+                <button class="tab" onclick="showTab('devices')">Devices</button>
             </div>
             
             <!-- Enroll Tab -->
@@ -308,6 +309,30 @@
                 <button onclick="loadSyncStatus()">Refresh Status</button>
                 <button onclick="triggerSync()">Sync Now</button>
                 <div id="syncMessage"></div>
+            </div>
+
+            <!-- Devices Tab -->
+            <div id="devicesTab" class="tab-content">
+                <h2>Device Management</h2>
+                <div class="enroll-device-form" style="background: #222; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #444;">
+                    <h3 style="color: #32cd32; margin-bottom: 15px;">Enroll New Device</h3>
+                    <div class="form-group">
+                        <label for="deviceUserSelect">Select User:</label>
+                        <select id="deviceUserSelect" style="width: 100%; padding: 10px; background: #333; color: white; border: 1px solid #555; border-radius: 5px;">
+                            <option value="">Loading users...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="deviceTokenInput">Device Token (from Kiosk screen):</label>
+                        <input type="text" id="deviceTokenInput" placeholder="Enter UUID token">
+                    </div>
+                    <div class="form-group">
+                        <label for="deviceNameInput">Device Name:</label>
+                        <input type="text" id="deviceNameInput" placeholder="e.g. Front Desk Tablet">
+                    </div>
+                    <button onclick="enrollDevice()" class="btn-primary" style="background: #228b22;">Enroll Device</button>
+                    <div id="deviceEnrollStatus"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -563,6 +588,72 @@
                 setTimeout(() => loadSyncStatus(), 1000);
             } catch (error) {
                 msgDiv.innerHTML = '<div class="status error">Connection error</div>';
+            }
+        }
+
+        async function loadDeviceUsers() {
+            const select = document.getElementById('deviceUserSelect');
+            try {
+                const response = await fetch(`/api/admin/users?token=${adminToken}`);
+                const users = await response.json();
+                
+                select.innerHTML = '<option value="">-- Select User --</option>';
+                users.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = `${user.name} (${user.employee_code})`;
+                    if (!user.active) option.disabled = true;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                select.innerHTML = '<option value="">Error loading users</option>';
+            }
+        }
+
+        async function enrollDevice() {
+            const userId = document.getElementById('deviceUserSelect').value;
+            const token = document.getElementById('deviceTokenInput').value.trim();
+            const name = document.getElementById('deviceNameInput').value.trim();
+            const statusDiv = document.getElementById('deviceEnrollStatus');
+
+            if (!userId || !token || !name) {
+                statusDiv.innerHTML = '<div class="status error">Please fill all fields</div>';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/devices/enroll', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_id: parseInt(userId),
+                        token: token,
+                        name: name,
+                        admin_token: adminToken || "admin" // Send token if available
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusDiv.innerHTML = '<div class="status success">Device enrolled successfully!</div>';
+                    // Clear inputs
+                    document.getElementById('deviceTokenInput').value = '';
+                    document.getElementById('deviceNameInput').value = '';
+                } else {
+                    statusDiv.innerHTML = `<div class="status error">${data.detail || 'Enrollment failed'}</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">Connection error</div>';
+            }
+        }
+
+        // Update showTab to load users when devices tab is shown
+        const _oldShowTab = showTab;
+        showTab = function(tabName) {
+            _oldShowTab(tabName);
+            if (tabName === 'devices') {
+                 loadDeviceUsers();
             }
         }
     </script>

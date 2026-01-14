@@ -233,8 +233,14 @@
     
     <div class="container">
         <h1><img src="/static/logo.png" alt="Logo" class="logo"> Checador</h1>
-        <div class="device-id">Device: {{ device_id }}</div>
+        <div class="device-id">Server Device: {{ device_id }}</div>
         
+        <!-- Client Device Info -->
+        <div id="clientDeviceInfo" class="device-id" style="color: #32cd32; border: 1px solid #333; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+            <p><strong>This Device ID:</strong> <span id="clientDeviceToken" style="font-family: monospace; user-select: all;">Loading...</span></p>
+            <p id="enrollmentStatus" style="font-size: 0.8em; margin-top: 5px;">Checking status...</p>
+        </div>
+
         <div id="autopunchIndicator" class="autopunch-indicator">
             🤖 AUTO-PUNCH ACTIVE - Just place your finger!
         </div>
@@ -261,45 +267,152 @@
         </div>
     </div>
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="/static/fp.min.js"></script>
+    
     <script>
-        const punchBtn = document.getElementById('punchBtn');
-        const status = document.getElementById('status');
+        const statusDiv = document.getElementById('status');
+        const spinner = document.createElement('div'); // Create spinner element dynamically
+        spinner.className = 'spinner';
+        spinner.style.display = 'none'; // Initially hidden
+        statusDiv.appendChild(spinner); // Append to status div
+
         const resultCard = document.getElementById('resultCard');
+        const punchButton = document.getElementById('punchBtn');
         const userName = document.getElementById('userName');
         const punchType = document.getElementById('punchType');
         const matchScore = document.getElementById('matchScore');
         const autopunchIndicator = document.getElementById('autopunchIndicator');
         
-        let autopunchEnabled = false;
-        let lastResultTimestamp = 0;
-        
-        async function punch() {
+        // Device Token Logic (FingerprintJS)
+        let deviceToken = null;
+        let isEnrolled = false;
+
+        async function initFingerprint() {
+            const enrollStatus = document.getElementById('enrollmentStatus');
             try {
-                punchBtn.disabled = true;
-                resultCard.classList.remove('show');
+                enrollStatus.textContent = "Generating Device Fingerprint...";
                 
-                status.className = 'status processing';
-                status.innerHTML = '<div class="spinner"></div>';
+                // Initialize the agent at application startup.
+                const fpPromise = FingerprintJS.load();
+                const fp = await fpPromise;
+                const result = await fp.get();
                 
-                const response = await fetch('/api/punch', {
+                deviceToken = result.visitorId;
+                document.getElementById('clientDeviceToken').textContent = deviceToken;
+                
+                await checkDeviceStatus();
+            } catch (error) {
+                console.error(error);
+                enrollStatus.textContent = "Fingerprint generation failed";
+                enrollStatus.style.color = '#ff4444';
+            }
+        }
+        
+        async function checkDeviceStatus() {
+            if (!deviceToken) return;
+            
+            const enrollStatus = document.getElementById('enrollmentStatus');
+            try {
+                const response = await fetch(`/api/devices/my-status?token=${deviceToken}`);
+                const data = await response.json();
+                
+                if (data.enrolled) {
+                    isEnrolled = true;
+                    enrollStatus.innerHTML = `✅ Enrolled as <strong>${data.device_name}</strong>`;
+                    enrollStatus.style.color = '#32cd32';
+                    punchButton.textContent = "Punch Now";
+                    punchButton.style.display = 'inline-block';
+                } else {
+                    isEnrolled = false;
+                    enrollStatus.innerHTML = `❌ Not Enrolled (Share Device ID with Admin)`;
+                    enrollStatus.style.color = '#ff4444';
+                    punchButton.textContent = "Device Not Enrolled";
+                }
+            } catch (error) {
+                enrollStatus.textContent = "Status check failed";
+            }
+        }
+        
+        // Start init
+        initFingerprint();
+
+        async function punch() {
+            if (!isEnrolled) {
+                alert("Device not enrolled. Contact admin.");
+                return;
+            }
+
+            statusDiv.className = 'status processing';
+            statusDiv.textContent = 'Processing device punch...';
+            spinner.style.display = 'block';
+            resultCard.classList.remove('show');
+            punchButton.disabled = true;
+            
+            try {
+                const response = await fetch('/api/devices/punch', {
                     method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({token: deviceToken})
                 });
                 
                 const data = await response.json();
                 
-                if (data.success) {
-                    showSuccess(data);
+                spinner.style.display = 'none';
+                punchButton.disabled = false;
+                
+                if (data.success || response.ok) { // success usually in data
+                     // normalize response handling
+                     const success = data.success !== undefined ? data.success : true;
+                     
+                     if (success) {
+                        statusDiv.className = 'status success';
+                        statusDiv.textContent = 'Success!';
+                        
+                        document.getElementById('userName').textContent = data.user_name || "Employee";
+                        // Assuming a 'punchTime' element exists or adding it to result-info
+                        // For now, let's update an existing element or add a new one if needed.
+                        // The original HTML does not have 'punchTime', so I'll update matchScore for now.
+                        // Or, better, add a new result-info div for time.
+                        // For this change, I'll just update matchScore with a generic message.
+                        // If a punchTime element is desired, it should be added to the HTML.
+                        // document.getElementById('punchTime').textContent = new Date().toLocaleTimeString();
+                        
+                        const typeEl = document.getElementById('punchType');
+                        typeEl.textContent = data.punch_type || "RECORDED";
+                        typeEl.className = data.punch_type === 'IN' ? 'punch-type-in' : 'punch-type-out';
+                        
+                        if (data.message) {
+                             document.getElementById('matchScore').textContent = data.message;
+                        } else {
+                             document.getElementById('matchScore').textContent = "Device Verified";
+                        }
+
+                        resultCard.classList.add('show');
+                        
+                        // Speak
+                        const msg = new SpeechSynthesisUtterance("Punch recorded");
+                        window.speechSynthesis.speak(msg);
+                     } else {
+                        throw new Error(data.detail || "Punch failed");
+                     }
                 } else {
-                    showError(data.message);
+                    throw new Error(data.detail || "Punch failed");
                 }
             } catch (error) {
-                showError('Connection error');
+                spinner.style.display = 'none';
+                punchButton.disabled = false;
+                statusDiv.className = 'status error';
+                statusDiv.textContent = error.message || 'Connection error';
+                
+                const msg = new SpeechSynthesisUtterance("Error");
+                window.speechSynthesis.speak(msg);
             }
         }
         
         function showSuccess(data) {
-            status.className = 'status success';
-            status.textContent = '✓ Punch Recorded!';
+            statusDiv.className = 'status success';
+            statusDiv.textContent = '✓ Punch Recorded!';
             
             userName.textContent = data.user_name;
             punchType.textContent = data.punch_type;
@@ -314,8 +427,8 @@
         }
         
         function showError(message) {
-            status.className = 'status error';
-            status.textContent = '✗ ' + message;
+            statusDiv.className = 'status error';
+            statusDiv.textContent = '✗ ' + message;
             
             setTimeout(() => {
                 resetStatus();
@@ -323,15 +436,15 @@
         }
         
         function resetStatus() {
-            status.className = 'status waiting';
-            status.textContent = autopunchEnabled ? 
+            statusDiv.className = 'status waiting';
+            statusDiv.textContent = autopunchEnabled ? 
                 'Auto-punch active - just place your finger' : 
                 'Place your finger to punch in or out';
             resultCard.classList.remove('show');
-            punchBtn.disabled = false;
+            punchButton.disabled = false;
         }
         
-        punchBtn.addEventListener('click', punch);
+        punchButton.addEventListener('click', punch);
         
         // Check auto-punch status
         async function checkAutopunchStatus() {
