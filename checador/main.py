@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from checador.api import admin, calibration, punch, sync, autopunch
+from checador.api import admin, calibration, device, punch, sync, autopunch
 from checador.autopunch import AutoPunchWorker
 from checador.config import get_config
 from checador.database import Database
@@ -109,9 +109,17 @@ async def shutdown():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        app,
-        host=config.app.host,
-        port=config.app.port,
-        log_level="info"
-    )
+
+    uvicorn_config = {
+        "app": app,
+        "host": config.app.host,
+        "port": config.app.port,
+        "log_level": "info",
+    }
+
+    if config.app.ssl_enabled:
+        uvicorn_config["ssl_keyfile"] = config.app.ssl_keyfile
+        uvicorn_config["ssl_certfile"] = config.app.ssl_certfile
+        logger.info(f"SSL enabled - serving on https://{config.app.host}:{config.app.port}")
+
+    uvicorn.run(**uvicorn_config)

@@ -236,6 +236,7 @@
                 <button class="tab" onclick="showTab('autopunch')">Auto-Punch</button>
                 <button class="tab" onclick="showTab('sync')">Sync</button>
                 <button class="tab" onclick="showTab('devices')">Devices</button>
+                <button class="tab" onclick="showTab('calibration')">Calibration</button>
             </div>
             
             <!-- Enroll Tab -->
@@ -333,6 +334,52 @@
                     <button onclick="enrollDevice()" class="btn-primary" style="background: #228b22;">Enroll Device</button>
                     <div id="deviceEnrollStatus"></div>
                 </div>
+
+                <h3 style="margin-top: 30px;">Enrolled Devices</h3>
+                <button onclick="loadDevices()">Refresh</button>
+                <table id="devicesTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Device Name</th>
+                            <th>User</th>
+                            <th>Token</th>
+                            <th>Enrolled</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="devicesTableBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Calibration Tab -->
+            <div id="calibrationTab" class="tab-content">
+                <h2>Camera Calibration</h2>
+                <p style="margin-bottom: 15px;">Set the Region of Interest (ROI) for fingerprint capture.</p>
+
+                <div class="sync-status">
+                    <p><strong>Current ROI:</strong></p>
+                    <p id="currentRoiInfo" style="font-family: monospace; color: #32cd32;">Loading...</p>
+                </div>
+
+                <div style="margin: 20px 0;">
+                    <button onclick="window.open('/calibration', '_blank')">Open Calibration Tool</button>
+                    <button onclick="loadCalibrationStatus()">Refresh ROI Info</button>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: #222; border-radius: 5px; border: 1px solid #444;">
+                    <h3 style="color: #32cd32;">How to Calibrate:</h3>
+                    <ol style="text-align: left; margin-left: 20px; line-height: 1.8;">
+                        <li>Click "Open Calibration Tool" to open the calibration page</li>
+                        <li>Place a finger on the sensor</li>
+                        <li>Click "Refresh Frame" to capture the current view</li>
+                        <li>Click and drag on the image to select the fingerprint region</li>
+                        <li>Click "Save ROI" to save the selection</li>
+                    </ol>
+                </div>
+
+                <div id="calibrationStatus"></div>
             </div>
         </div>
     </div>
@@ -488,6 +535,7 @@
                         <td>${user.template_count}</td>
                         <td>
                             ${user.active ? `<button onclick="deactivateUser(${user.id})">Deactivate</button>` : ''}
+                            <button onclick="deleteUser(${user.id}, '${user.name.replace(/'/g, "\\'")}')" style="background: #8b0000;">Delete</button>
                         </td>
                     `;
                 });
@@ -498,7 +546,7 @@
         
         async function deactivateUser(userId) {
             if (!confirm('Deactivate this user?')) return;
-            
+
             try {
                 await fetch(`/api/admin/users/${userId}/deactivate?token=${adminToken}`, {
                     method: 'POST'
@@ -506,6 +554,25 @@
                 loadUsers();
             } catch (error) {
                 alert('Error deactivating user');
+            }
+        }
+
+        async function deleteUser(userId, userName) {
+            if (!confirm(`DELETE user "${userName}"?\n\nThis will permanently remove the user and all their fingerprint templates.\n\nThis action cannot be undone!`)) return;
+
+            try {
+                const response = await fetch(`/api/admin/users/${userId}?token=${adminToken}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadUsers();
+                } else {
+                    const data = await response.json();
+                    alert(data.detail || 'Error deleting user');
+                }
+            } catch (error) {
+                alert('Error deleting user');
             }
         }
         
@@ -640,6 +707,8 @@
                     // Clear inputs
                     document.getElementById('deviceTokenInput').value = '';
                     document.getElementById('deviceNameInput').value = '';
+                    // Refresh devices list
+                    loadDevices();
                 } else {
                     statusDiv.innerHTML = `<div class="status error">${data.detail || 'Enrollment failed'}</div>`;
                 }
@@ -648,12 +717,81 @@
             }
         }
 
-        // Update showTab to load users when devices tab is shown
+        async function loadDevices() {
+            const tbody = document.getElementById('devicesTableBody');
+
+            try {
+                const response = await fetch(`/api/admin/devices?token=${adminToken}`);
+                const devices = await response.json();
+
+                tbody.innerHTML = '';
+                if (devices.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No devices enrolled</td></tr>';
+                    return;
+                }
+
+                devices.forEach(device => {
+                    const row = tbody.insertRow();
+                    const createdAt = new Date(device.created_at).toLocaleDateString();
+                    const shortToken = device.token.substring(0, 16) + '...';
+                    row.innerHTML = `
+                        <td>${device.id}</td>
+                        <td>${device.name}</td>
+                        <td>${device.user_name} (${device.user_code})</td>
+                        <td style="font-family: monospace; font-size: 0.85em;" title="${device.token}">${shortToken}</td>
+                        <td>${createdAt}</td>
+                        <td>
+                            <button onclick="deleteDevice(${device.id}, '${device.name.replace(/'/g, "\\'")}', '${device.user_name.replace(/'/g, "\\'")}')" style="background: #8b0000;">Delete</button>
+                        </td>
+                    `;
+                });
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="6">Error loading devices</td></tr>';
+            }
+        }
+
+        async function deleteDevice(deviceId, deviceName, userName) {
+            if (!confirm(`DELETE device "${deviceName}" for user "${userName}"?\n\nThis will unlink this device from the user.\n\nThis action cannot be undone!`)) return;
+
+            try {
+                const response = await fetch(`/api/admin/devices/${deviceId}?token=${adminToken}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadDevices();
+                } else {
+                    const data = await response.json();
+                    alert(data.detail || 'Error deleting device');
+                }
+            } catch (error) {
+                alert('Error deleting device');
+            }
+        }
+
+        async function loadCalibrationStatus() {
+            const roiInfo = document.getElementById('currentRoiInfo');
+
+            try {
+                const response = await fetch('/api/calibration/roi');
+                const data = await response.json();
+
+                roiInfo.textContent = `x=${data.x}, y=${data.y}, width=${data.width}, height=${data.height}`;
+            } catch (error) {
+                roiInfo.textContent = 'Error loading ROI info';
+            }
+        }
+
+        // Update showTab to load data when tabs are shown
         const _oldShowTab = showTab;
         showTab = function(tabName) {
             _oldShowTab(tabName);
             if (tabName === 'devices') {
-                 loadDeviceUsers();
+                loadDeviceUsers();
+                loadDevices();
+            }
+            if (tabName === 'calibration') {
+                loadCalibrationStatus();
             }
         }
     </script>

@@ -17,6 +17,9 @@ class AppConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8000
     admin_password_hash: str
+    ssl_enabled: bool = False
+    ssl_certfile: str = "/etc/checador/ssl/cert.pem"
+    ssl_keyfile: str = "/etc/checador/ssl/key.pem"
 
 
 class CameraConfig(BaseModel):
@@ -53,6 +56,14 @@ class StorageConfig(BaseModel):
 class TimeclockConfig(BaseModel):
     """Timeclock configuration."""
     antibounce_seconds: int = 10
+    max_punches_per_day: int = 6  # Default: 3 in + 3 out
+    punch_cooldown_seconds: int = 300  # 5 minutes between punches
+
+
+class DeviceSecurityConfig(BaseModel):
+    """Device punch security configuration."""
+    user_agent_check_enabled: bool = True
+    challenge_expiry_seconds: int = 300  # 5 minutes
 
 
 class ServerConfig(BaseModel):
@@ -94,6 +105,7 @@ class Config:
         self.timeclock = TimeclockConfig(**config_data.get('timeclock', {}))
         self.server = ServerConfig(**config_data.get('server', {}))
         self.autopunch = AutoPunchConfig(**config_data.get('autopunch', {}))
+        self.device_security = DeviceSecurityConfig(**config_data.get('device_security', {}))
         
         # Convert paths
         self.database_path = Path(self.database.path)
@@ -113,6 +125,7 @@ class Config:
             'timeclock': self.timeclock.model_dump(),
             'server': self.server.model_dump(),
             'autopunch': self.autopunch.model_dump(),
+            'device_security': self.device_security.model_dump(),
         }
         
         with open(self.config_path, 'w') as f:

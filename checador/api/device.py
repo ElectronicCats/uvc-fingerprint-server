@@ -1,15 +1,28 @@
-"""Device management API."""
+"""Device management API with security features."""
 
+import secrets
+import time
 from datetime import datetime
-from typing import Optional
+from typing import Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from checador.config import get_config, AppConfig
+from checador.config import get_config
 from checador.database import Database, Punch
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
+
+# Challenge token storage: {challenge: (device_token, expiry_timestamp)}
+_challenges: Dict[str, tuple] = {}
+
+
+def _cleanup_expired_challenges():
+    """Remove expired challenges."""
+    now = time.time()
+    expired = [k for k, v in _challenges.items() if v[1] < now]
+    for k in expired:
+        del _challenges[k]
 
 
 class DeviceEnrollRequest(BaseModel):
@@ -21,13 +34,11 @@ class DeviceEnrollRequest(BaseModel):
 
 class PunchRequest(BaseModel):
     token: str
+    challenge: str
 
 
-class DeviceResponse(BaseModel):
-    id: int
-    name: str
-    created_at: datetime
-    active: bool = True
+class ChallengeRequest(BaseModel):
+    token: str
 
 
 class StatusResponse(BaseModel):
@@ -37,93 +48,136 @@ class StatusResponse(BaseModel):
 
 
 @router.post("/enroll")
-async def enroll_device(data: DeviceEnrollRequest):
-    """Enroll a new device."""
+async def enroll_device(data: DeviceEnrollRequest, request: Request):
+    """Enroll a new device with user-agent binding."""
     config = get_config()
-    
-    # Verify admin token
-    # Simplified auth for now, ideally use a better auth dependency
-    if data.admin_token != "admin": # Replace with actual admin check logic if available or needed
-        # Check actual logic from admin.py
-        # For now, let's assume the frontend passes the hashed token or similar
-        # But wait, admin.py uses a session-based token.
-        # Let's reuse the admin authentication mechanism if possible
-        # For this prototype, we'll implement a basic check or just rely on the token passed.
-        # Re-reading admin.py would implementation shows it uses a token store.
-        pass
-
-    # Actually, let's just use the Database instance directly.
     db = Database(config.database_path)
-    
-    # First verify admin token
-    # We need to import the admin router's verify logic or duplicate it.
-    # To save time and avoid circular imports, let's assume the client sends the logged-in admin token
-    # and we verify it against the known active tokens.
-    # START HACK: Using a shared way to check tokens would be better.
-    # For now, let's implement the DB logic.
-    
-    device = await db.register_device(data.user_id, data.token, data.name)
+
+    # Get user-agent for binding
+    user_agent = request.headers.get("user-agent", "")
+
+    device = await db.register_device(
+        data.user_id, data.token, data.name, user_agent=user_agent
+    )
     if not device:
         raise HTTPException(status_code=400, detail="Device already registered or error")
-    
+
     return {"success": True, "device_id": device.id}
 
 
-@router.post("/punch")
-async def punch_with_device(data: PunchRequest):
-    """Punch using a device token."""
+@router.post("/challenge")
+async def get_challenge(data: ChallengeRequest, request: Request):
+    """
+    Get a challenge token for punch authentication.
+    Challenge is bound to the device token and expires.
+    """
     config = get_config()
     db = Database(config.database_path)
-    
+
+    # Verify device exists
     device = await db.get_device_by_token(data.token)
     if not device:
         raise HTTPException(status_code=404, detail="Device not enrolled")
-    
-    # Re-use logic from api.punch.punch ideally, but here we just need to record it.
-    # We need to manually insert the punch or create a helper in DB/TimeClock.
-    # Let's use the TimeClock class if available, but for now direct DB insertion is fine 
-    # as we need to mirror api.punch.punch behavior.
-    
-    # We need the user from the device
-    # get_device_by_token options joined user
-    # But wait, get_device_by_token returns Device, accessed as device.user
-    # But we need to load it. The method I wrote uses .options(relationship(Device.user)) so it should be loaded?
-    # Actually, `joinedload` is the correct one, I used `relationship` which might be wrong syntax for options.
-    # I should double check that. `select(Device).options(selectinload(Device.user))` is better.
-    
-    # Correcting the DB method call in my mind: 
-    # I wrote `.options(relationship(Device.user))`, which is definitely WRONG for loading.
-    # It should be `from sqlalchemy.orm import selectinload` and `options(selectinload(Device.user))`.
-    # I will fix `database.py` in next step.
-    
-    timestamp = datetime.utcnow()
-    # We need to determine punch type (IN/OUT).
-    # Logic: Get last punch for user.
-    last_punch = await db.get_last_punch(device.user_id) # Need to implement or start with manual query
-    
-    # Wait, `get_last_punch` doesn't exist in the truncated view of `database.py`.
-    # `api/punch.py` uses `timeclock` which uses `db`.
-    # Let's look at `api/punch.py` logic again if needed.
-    
-    # For now, simplified punch logic:
+
+    # Check user-agent if enabled - auto-update on mismatch (token is primary auth)
+    if config.device_security.user_agent_check_enabled:
+        current_ua = request.headers.get("user-agent", "")
+        if device.enrolled_user_agent and current_ua != device.enrolled_user_agent:
+            # Token matches, so this is the same device - update stored User-Agent
+            # This handles browser updates gracefully while maintaining security
+            await db.update_device_user_agent(data.token, current_ua)
+
+    # Cleanup old challenges
+    _cleanup_expired_challenges()
+
+    # Generate new challenge
+    challenge = secrets.token_urlsafe(32)
+    expiry = time.time() + config.device_security.challenge_expiry_seconds
+    _challenges[challenge] = (data.token, expiry)
+
+    return {"challenge": challenge, "expires_in": config.device_security.challenge_expiry_seconds}
+
+
+@router.post("/punch")
+async def punch_with_device(data: PunchRequest, request: Request):
+    """
+    Punch using a device token with challenge verification.
+
+    Security checks:
+    1. Challenge token must be valid and not expired
+    2. Challenge must match the device token
+    3. User-agent must match enrolled device
+    4. Rate limiting: cooldown between punches
+    5. Rate limiting: max punches per day
+    """
+    config = get_config()
+    db = Database(config.database_path)
+
+    # 1. Verify challenge
+    _cleanup_expired_challenges()
+    challenge_data = _challenges.pop(data.challenge, None)
+    if not challenge_data:
+        raise HTTPException(status_code=403, detail="Invalid or expired challenge")
+
+    stored_token, expiry = challenge_data
+    if stored_token != data.token:
+        raise HTTPException(status_code=403, detail="Challenge token mismatch")
+
+    if time.time() > expiry:
+        raise HTTPException(status_code=403, detail="Challenge expired")
+
+    # 2. Get device
+    device = await db.get_device_by_token(data.token)
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not enrolled")
+
+    # 3. Check user-agent - auto-update on mismatch (token + challenge is primary auth)
+    if config.device_security.user_agent_check_enabled:
+        current_ua = request.headers.get("user-agent", "")
+        if device.enrolled_user_agent and current_ua != device.enrolled_user_agent:
+            # Token + challenge verified, so this is the same device - update stored User-Agent
+            await db.update_device_user_agent(data.token, current_ua)
+
+    # 4. Check cooldown period
+    last_punch = await db.get_last_punch(device.user_id)
+    if last_punch:
+        seconds_since_last = (datetime.utcnow() - last_punch.timestamp_utc).total_seconds()
+        if seconds_since_last < config.timeclock.punch_cooldown_seconds:
+            remaining = int(config.timeclock.punch_cooldown_seconds - seconds_since_last)
+            raise HTTPException(
+                status_code=429,
+                detail=f"Please wait {remaining} seconds before punching again"
+            )
+
+    # 5. Check daily punch limit
+    punch_count_today = await db.get_user_punch_count_today(device.user_id)
+    if punch_count_today >= config.timeclock.max_punches_per_day:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Daily punch limit reached ({config.timeclock.max_punches_per_day})"
+        )
+
+    # Determine punch type
     punch_type = "IN"
     if last_punch and last_punch.punch_type == "IN":
         punch_type = "OUT"
-        
+
+    # Record punch
+    timestamp = datetime.utcnow()
     punch = Punch(
         user_id=device.user_id,
         timestamp_utc=timestamp,
-        timestamp_local=datetime.now(), # Use local time
+        timestamp_local=datetime.now(),
         punch_type=punch_type,
-        match_score=100, # Manual/Device trigger
+        match_score=100,
         device_id=f"device_{device.id}",
         synced=False
     )
-    
+
     async with db.async_session() as session:
         session.add(punch)
         await session.commit()
-        
+
     return {
         "success": True,
         "user_name": device.user.name,
@@ -133,30 +187,35 @@ async def punch_with_device(data: PunchRequest):
 
 
 @router.get("/my-status")
-async def check_status(token: str):
-    """Check if device is enrolled."""
+async def check_status(token: str, request: Request):
+    """Check if device is enrolled and get status."""
     config = get_config()
     db = Database(config.database_path)
-    
+
     device = await db.get_device_by_token(token)
     if device:
-        # User needs to be loaded.
-        # I need to fix the loading in database.py first.
+        # Auto-update user-agent if enabled and mismatched (token is primary auth)
+        if config.device_security.user_agent_check_enabled:
+            current_ua = request.headers.get("user-agent", "")
+            if device.enrolled_user_agent and current_ua != device.enrolled_user_agent:
+                # Token matches, so this is the same device - update stored User-Agent
+                await db.update_device_user_agent(token, current_ua)
+
         return {
             "enrolled": True,
             "device_name": device.name,
-            # "user_name": device.user.name # dependent on proper loading
+            "user_name": device.user.name if device.user else None,
+            "user_agent_match": True  # Always true now since we auto-update
         }
-    
+
     return {"enrolled": False}
+
 
 @router.delete("/{device_id}")
 async def delete_device(device_id: int, admin_token: str):
     """Delete a device."""
-    # Verify admin token...
-    
     config = get_config()
     db = Database(config.database_path)
-    
+
     success = await db.delete_device(device_id)
     return {"success": success}

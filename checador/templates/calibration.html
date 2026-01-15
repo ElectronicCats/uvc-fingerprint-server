@@ -224,7 +224,7 @@
                 statusDiv.innerHTML = '<div class="status error">Please draw a ROI first</div>';
                 return;
             }
-            
+
             try {
                 const response = await fetch('/api/calibration/roi', {
                     method: 'POST',
@@ -236,21 +236,42 @@
                         height: Math.round(roi.height)
                     })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     statusDiv.innerHTML = '<div class="status success">✓ ROI saved successfully! You can now close this page.</div>';
                 } else {
-                    statusDiv.innerHTML = '<div class="status error">Failed to save ROI</div>';
+                    statusDiv.innerHTML = '<div class="status error">' + (data.message || 'Failed to save ROI') + '</div>';
                 }
             } catch (error) {
                 statusDiv.innerHTML = '<div class="status error">Connection error</div>';
             }
         }
-        
-        // Load initial frame
+
+        async function loadCurrentROI() {
+            try {
+                const response = await fetch('/api/calibration/roi');
+                const data = await response.json();
+
+                if (data.x !== undefined && data.width > 0 && data.height > 0) {
+                    roi = {
+                        x: data.x,
+                        y: data.y,
+                        width: data.width,
+                        height: data.height
+                    };
+                    updateROIInfo();
+                    drawROI();
+                }
+            } catch (error) {
+                console.log('Could not load current ROI');
+            }
+        }
+
+        // Load initial frame and current ROI
         refreshFrame();
+        loadCurrentROI();
         setInterval(refreshFrame, 5000); // Auto-refresh every 5 seconds
     </script>
 </body>

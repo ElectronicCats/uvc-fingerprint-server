@@ -10,7 +10,7 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #000000;
@@ -20,7 +20,7 @@
             align-items: center;
             color: #333;
         }
-        
+
         .container {
             background: #111;
             border-radius: 20px;
@@ -31,7 +31,7 @@
             width: 90%;
             border: 1px solid #333;
         }
-        
+
         h1 {
             color: #32cd32;
             margin-bottom: 20px;
@@ -46,14 +46,95 @@
             height: 60px;
             width: auto;
         }
-        
+
         .device-id {
             color: #666;
             font-size: 0.9em;
             margin-bottom: 30px;
             font-family: monospace;
         }
-        
+
+        /* Selection Screen Styles */
+        .selection-screen {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .selection-title {
+            color: #ccc;
+            font-size: 1.3em;
+            margin-bottom: 10px;
+        }
+
+        .selection-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .selection-btn {
+            background: #222;
+            border: 2px solid #444;
+            color: #ccc;
+            padding: 25px 30px;
+            font-size: 1.2em;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .selection-btn:hover {
+            border-color: #32cd32;
+            background: #1a1a1a;
+            color: #32cd32;
+        }
+
+        .selection-btn .icon {
+            font-size: 2em;
+        }
+
+        .selection-btn .label {
+            text-align: left;
+        }
+
+        .selection-btn .label small {
+            display: block;
+            font-size: 0.7em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* Punch Screen Styles */
+        .punch-screen {
+            display: none;
+        }
+
+        .punch-screen.active {
+            display: block;
+        }
+
+        .back-btn {
+            background: transparent;
+            border: 1px solid #444;
+            color: #888;
+            padding: 8px 15px;
+            font-size: 0.9em;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            border-color: #32cd32;
+            color: #32cd32;
+        }
+
         .autopunch-indicator {
             background: linear-gradient(135deg, #32cd32 0%, #228b22 100%);
             color: black;
@@ -66,16 +147,16 @@
             animation: pulse 2s infinite;
             border: 1px solid #32cd32;
         }
-        
+
         .autopunch-indicator.active {
             display: block;
         }
-        
+
         @keyframes pulse {
             0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 10px rgba(50, 205, 50, 0.5); }
             50% { opacity: 0.8; transform: scale(1.02); box-shadow: 0 0 20px rgba(50, 205, 50, 0.8); }
         }
-        
+
         .status {
             font-size: 1.2em;
             margin-bottom: 30px;
@@ -89,30 +170,30 @@
             color: #ccc;
             border: 1px solid #444;
         }
-        
+
         .status.waiting {
             color: #aaa;
         }
-        
+
         .status.processing {
             color: #ffd700;
             background: #332b00;
             border-color: #ffd700;
         }
-        
+
         .status.success {
             color: #32cd32;
             font-weight: bold;
             background: #003300;
             border-color: #32cd32;
         }
-        
+
         .status.error {
             color: #ff4444;
             background: #330000;
             border-color: #ff4444;
         }
-        
+
         .punch-button {
             background: linear-gradient(135deg, #32cd32 0%, #228b22 100%);
             color: black;
@@ -127,26 +208,27 @@
             text-transform: uppercase;
             letter-spacing: 1px;
         }
-        
+
         .punch-button:hover {
             transform: scale(1.05);
             box-shadow: 0 0 30px rgba(50, 205, 50, 0.6);
         }
-        
+
         .punch-button:active {
             transform: scale(0.95);
         }
-        
+
         .punch-button:disabled {
-            background: #ccc;
+            background: #555;
             cursor: not-allowed;
             transform: none;
+            box-shadow: none;
         }
-        
+
         .punch-button.hidden {
             display: none;
         }
-        
+
         .result-card {
             margin-top: 30px;
             padding: 20px;
@@ -155,33 +237,33 @@
             border: 1px solid #444;
             display: none;
         }
-        
+
         .result-card.show {
             display: block;
             animation: slideIn 0.3s ease;
         }
-        
+
         .result-card h2 {
             margin-bottom: 15px;
             color: #32cd32;
         }
-        
+
         .result-info {
             font-size: 1.1em;
             margin: 10px 0;
             color: #ccc;
         }
-        
+
         .punch-type-in {
             color: #32cd32;
             font-weight: bold;
         }
-        
+
         .punch-type-out {
             color: #ff4444;
             font-weight: bold;
         }
-        
+
         .admin-link {
             position: fixed;
             top: 20px;
@@ -195,12 +277,12 @@
             transition: background 0.2s;
             border: 1px solid #32cd32;
         }
-        
+
         .admin-link:hover {
             background: #32cd32;
             color: black;
         }
-        
+
         .spinner {
             border: 4px solid #333;
             border-top: 4px solid #32cd32;
@@ -210,12 +292,12 @@
             animation: spin 1s linear infinite;
             margin: 0 auto;
         }
-        
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
+
         @keyframes slideIn {
             from {
                 opacity: 0;
@@ -226,287 +308,471 @@
                 transform: translateY(0);
             }
         }
+
+        .mode-indicator {
+            color: #666;
+            font-size: 0.85em;
+            margin-bottom: 15px;
+            padding: 8px 15px;
+            background: #1a1a1a;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        .mode-indicator.device {
+            border: 1px solid #4488ff;
+            color: #4488ff;
+        }
+
+        .mode-indicator.fingerprint {
+            border: 1px solid #ff8844;
+            color: #ff8844;
+        }
     </style>
 </head>
 <body>
     <a href="/admin" class="admin-link">Admin</a>
-    
+
     <div class="container">
         <h1><img src="/static/logo.png" alt="Logo" class="logo"> Checador</h1>
         <div class="device-id">Server Device: {{ device_id }}</div>
-        
-        <!-- Client Device Info -->
-        <div id="clientDeviceInfo" class="device-id" style="color: #32cd32; border: 1px solid #333; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
-            <p><strong>This Device ID:</strong> <span id="clientDeviceToken" style="font-family: monospace; user-select: all;">Loading...</span></p>
-            <p id="enrollmentStatus" style="font-size: 0.8em; margin-top: 5px;">Checking status...</p>
+
+        <!-- Selection Screen -->
+        <div id="selectionScreen" class="selection-screen">
+            <div class="selection-title">Select Punch Method</div>
+            <div class="selection-buttons">
+                <button class="selection-btn" onclick="selectMode('device')">
+                    <span class="icon">📱</span>
+                    <span class="label">
+                        Device Punch
+                        <small>Use this device's unique fingerprint</small>
+                    </span>
+                </button>
+                <button class="selection-btn" onclick="selectMode('fingerprint')">
+                    <span class="icon">👆</span>
+                    <span class="label">
+                        Fingerprint Punch
+                        <small>Use biometric fingerprint scanner</small>
+                    </span>
+                </button>
+            </div>
         </div>
 
-        <div id="autopunchIndicator" class="autopunch-indicator">
-            🤖 AUTO-PUNCH ACTIVE - Just place your finger!
-        </div>
-        
-        <div id="status" class="status waiting">
-            Place your finger to punch in or out
-        </div>
-        
-        <button id="punchBtn" class="punch-button">
-            👆 Punch Now
-        </button>
-        
-        <div id="resultCard" class="result-card">
-            <h2>Punch Recorded!</h2>
-            <div class="result-info">
-                <strong>Employee:</strong> <span id="userName"></span>
+        <!-- Device Punch Screen -->
+        <div id="devicePunchScreen" class="punch-screen">
+            <button class="back-btn" onclick="goBack()">← Back</button>
+            <div class="mode-indicator device">Device Punch Mode</div>
+
+            <div id="clientDeviceInfo" class="device-id" style="color: #32cd32; border: 1px solid #333; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+                <p><strong>This Device ID:</strong> <span id="clientDeviceToken" style="font-family: monospace; user-select: all;">Loading...</span></p>
+                <p id="enrollmentStatus" style="font-size: 0.8em; margin-top: 5px;">Checking status...</p>
             </div>
-            <div class="result-info">
-                <strong>Type:</strong> <span id="punchType"></span>
+
+            <div id="deviceStatus" class="status waiting">
+                Ready to punch
             </div>
-            <div class="result-info">
-                <strong>Match Score:</strong> <span id="matchScore"></span>
+
+            <button id="devicePunchBtn" class="punch-button">
+                Punch Now
+            </button>
+
+            <div id="deviceResultCard" class="result-card">
+                <h2>Punch Recorded!</h2>
+                <div class="result-info">
+                    <strong>Employee:</strong> <span id="deviceUserName"></span>
+                </div>
+                <div class="result-info">
+                    <strong>Type:</strong> <span id="devicePunchType"></span>
+                </div>
+                <div class="result-info" id="deviceMatchInfo">
+                    <strong>Status:</strong> <span id="deviceMatchScore">Device Verified</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fingerprint Punch Screen -->
+        <div id="fingerprintPunchScreen" class="punch-screen">
+            <button class="back-btn" onclick="goBack()">← Back</button>
+            <div class="mode-indicator fingerprint">Fingerprint Punch Mode</div>
+
+            <div id="autopunchIndicator" class="autopunch-indicator">
+                AUTO-PUNCH ACTIVE - Just place your finger!
+            </div>
+
+            <div id="fpStatus" class="status waiting">
+                Place your finger on the scanner
+            </div>
+
+            <button id="fpPunchBtn" class="punch-button">
+                Scan Fingerprint
+            </button>
+
+            <div id="fpResultCard" class="result-card">
+                <h2>Punch Recorded!</h2>
+                <div class="result-info">
+                    <strong>Employee:</strong> <span id="fpUserName"></span>
+                </div>
+                <div class="result-info">
+                    <strong>Type:</strong> <span id="fpPunchType"></span>
+                </div>
+                <div class="result-info">
+                    <strong>Match Score:</strong> <span id="fpMatchScore"></span>
+                </div>
             </div>
         </div>
     </div>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script src="/static/fp.min.js"></script>
-    
-    <script>
-        const statusDiv = document.getElementById('status');
-        const spinner = document.createElement('div'); // Create spinner element dynamically
-        spinner.className = 'spinner';
-        spinner.style.display = 'none'; // Initially hidden
-        statusDiv.appendChild(spinner); // Append to status div
 
-        const resultCard = document.getElementById('resultCard');
-        const punchButton = document.getElementById('punchBtn');
-        const userName = document.getElementById('userName');
-        const punchType = document.getElementById('punchType');
-        const matchScore = document.getElementById('matchScore');
-        const autopunchIndicator = document.getElementById('autopunchIndicator');
-        
-        // Device Token Logic (FingerprintJS)
+    <script src="/static/fp.min.js"></script>
+
+    <script>
+        // Current mode
+        let currentMode = null;
         let deviceToken = null;
         let isEnrolled = false;
+        let autopunchEnabled = false;
+        let lastResultTimestamp = 0;
 
-        async function initFingerprint() {
+        // Mode selection
+        function selectMode(mode) {
+            currentMode = mode;
+            sessionStorage.setItem('punchMode', mode);
+
+            document.getElementById('selectionScreen').style.display = 'none';
+
+            if (mode === 'device') {
+                document.getElementById('devicePunchScreen').classList.add('active');
+                initDeviceMode();
+            } else {
+                document.getElementById('fingerprintPunchScreen').classList.add('active');
+                initFingerprintMode();
+            }
+        }
+
+        function goBack() {
+            currentMode = null;
+            sessionStorage.removeItem('punchMode');
+
+            document.getElementById('selectionScreen').style.display = 'flex';
+            document.getElementById('devicePunchScreen').classList.remove('active');
+            document.getElementById('fingerprintPunchScreen').classList.remove('active');
+        }
+
+        // Check for saved mode on page load
+        const savedMode = sessionStorage.getItem('punchMode');
+        if (savedMode) {
+            selectMode(savedMode);
+        }
+
+        // Generate random hex string (works over HTTP)
+        function generateRandomHex(length) {
+            let result = '';
+            const chars = '0123456789abcdef';
+            for (let i = 0; i < length; i++) {
+                result += chars[Math.floor(Math.random() * 16)];
+            }
+            return result;
+        }
+
+        // ========== DEVICE PUNCH MODE ==========
+        async function initDeviceMode() {
             const enrollStatus = document.getElementById('enrollmentStatus');
             try {
-                enrollStatus.textContent = "Generating Device Fingerprint...";
-                
-                // Initialize the agent at application startup.
-                const fpPromise = FingerprintJS.load();
-                const fp = await fpPromise;
-                const result = await fp.get();
-                
-                deviceToken = result.visitorId;
+                enrollStatus.textContent = "Loading Device ID...";
+
+                // Check for existing stored device token first
+                let storedToken = localStorage.getItem('checador_device_token');
+
+                if (storedToken) {
+                    // Use stored token for persistence
+                    deviceToken = storedToken;
+                } else {
+                    // Generate new token using FingerprintJS + random component
+                    const fpPromise = FingerprintJS.load();
+                    const fp = await fpPromise;
+                    const result = await fp.get();
+
+                    // Combine fingerprint with random hex for uniqueness + persistence
+                    const randomPart = generateRandomHex(8);
+                    deviceToken = result.visitorId.substring(0, 24) + randomPart;
+
+                    // Store for persistence
+                    localStorage.setItem('checador_device_token', deviceToken);
+                }
+
                 document.getElementById('clientDeviceToken').textContent = deviceToken;
-                
                 await checkDeviceStatus();
             } catch (error) {
                 console.error(error);
-                enrollStatus.textContent = "Fingerprint generation failed";
+                enrollStatus.textContent = "Device ID generation failed";
                 enrollStatus.style.color = '#ff4444';
             }
         }
-        
+
         async function checkDeviceStatus() {
             if (!deviceToken) return;
-            
+
             const enrollStatus = document.getElementById('enrollmentStatus');
+            const punchBtn = document.getElementById('devicePunchBtn');
+
             try {
                 const response = await fetch(`/api/devices/my-status?token=${deviceToken}`);
                 const data = await response.json();
-                
+
                 if (data.enrolled) {
                     isEnrolled = true;
-                    enrollStatus.innerHTML = `✅ Enrolled as <strong>${data.device_name}</strong>`;
+                    enrollStatus.innerHTML = `Enrolled as <strong>${data.device_name}</strong>`;
+                    if (data.user_name) {
+                        enrollStatus.innerHTML += ` (${data.user_name})`;
+                    }
                     enrollStatus.style.color = '#32cd32';
-                    punchButton.textContent = "Punch Now";
-                    punchButton.style.display = 'inline-block';
+                    punchBtn.textContent = "Punch Now";
+                    punchBtn.disabled = false;
                 } else {
                     isEnrolled = false;
-                    enrollStatus.innerHTML = `❌ Not Enrolled (Share Device ID with Admin)`;
+                    enrollStatus.innerHTML = `Not Enrolled - Share Device ID with Admin`;
                     enrollStatus.style.color = '#ff4444';
-                    punchButton.textContent = "Device Not Enrolled";
+                    punchBtn.textContent = "Device Not Enrolled";
+                    punchBtn.disabled = true;
                 }
             } catch (error) {
                 enrollStatus.textContent = "Status check failed";
+                enrollStatus.style.color = '#ff4444';
             }
         }
-        
-        // Start init
-        initFingerprint();
 
-        async function punch() {
-            if (!isEnrolled) {
+        async function devicePunch() {
+            if (!isEnrolled || !deviceToken) {
                 alert("Device not enrolled. Contact admin.");
                 return;
             }
 
+            const statusDiv = document.getElementById('deviceStatus');
+            const punchBtn = document.getElementById('devicePunchBtn');
+            const resultCard = document.getElementById('deviceResultCard');
+
             statusDiv.className = 'status processing';
-            statusDiv.textContent = 'Processing device punch...';
-            spinner.style.display = 'block';
+            statusDiv.textContent = 'Getting challenge...';
+            punchBtn.disabled = true;
             resultCard.classList.remove('show');
-            punchButton.disabled = true;
-            
+
             try {
-                const response = await fetch('/api/devices/punch', {
+                // Step 1: Get challenge token
+                const challengeResponse = await fetch('/api/devices/challenge', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({token: deviceToken})
                 });
-                
-                const data = await response.json();
-                
-                spinner.style.display = 'none';
-                punchButton.disabled = false;
-                
-                if (data.success || response.ok) { // success usually in data
-                     // normalize response handling
-                     const success = data.success !== undefined ? data.success : true;
-                     
-                     if (success) {
-                        statusDiv.className = 'status success';
-                        statusDiv.textContent = 'Success!';
-                        
-                        document.getElementById('userName').textContent = data.user_name || "Employee";
-                        // Assuming a 'punchTime' element exists or adding it to result-info
-                        // For now, let's update an existing element or add a new one if needed.
-                        // The original HTML does not have 'punchTime', so I'll update matchScore for now.
-                        // Or, better, add a new result-info div for time.
-                        // For this change, I'll just update matchScore with a generic message.
-                        // If a punchTime element is desired, it should be added to the HTML.
-                        // document.getElementById('punchTime').textContent = new Date().toLocaleTimeString();
-                        
-                        const typeEl = document.getElementById('punchType');
-                        typeEl.textContent = data.punch_type || "RECORDED";
-                        typeEl.className = data.punch_type === 'IN' ? 'punch-type-in' : 'punch-type-out';
-                        
-                        if (data.message) {
-                             document.getElementById('matchScore').textContent = data.message;
-                        } else {
-                             document.getElementById('matchScore').textContent = "Device Verified";
-                        }
 
-                        resultCard.classList.add('show');
-                        
-                        // Speak
-                        const msg = new SpeechSynthesisUtterance("Punch recorded");
-                        window.speechSynthesis.speak(msg);
-                     } else {
-                        throw new Error(data.detail || "Punch failed");
-                     }
-                } else {
-                    throw new Error(data.detail || "Punch failed");
+                if (!challengeResponse.ok) {
+                    const err = await challengeResponse.json();
+                    throw new Error(err.detail || 'Failed to get challenge');
                 }
+
+                const challengeData = await challengeResponse.json();
+
+                // Step 2: Submit punch with challenge
+                statusDiv.textContent = 'Processing punch...';
+
+                const punchResponse = await fetch('/api/devices/punch', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        token: deviceToken,
+                        challenge: challengeData.challenge
+                    })
+                });
+
+                const punchData = await punchResponse.json();
+
+                if (!punchResponse.ok) {
+                    throw new Error(punchData.detail || 'Punch failed');
+                }
+
+                // Success
+                statusDiv.className = 'status success';
+                statusDiv.textContent = 'Punch Recorded!';
+
+                document.getElementById('deviceUserName').textContent = punchData.user_name || "Employee";
+                const typeEl = document.getElementById('devicePunchType');
+                typeEl.textContent = punchData.punch_type;
+                typeEl.className = punchData.punch_type === 'IN' ? 'punch-type-in' : 'punch-type-out';
+                document.getElementById('deviceMatchScore').textContent = "Device Verified";
+
+                resultCard.classList.add('show');
+
+                // Speak result
+                const msg = new SpeechSynthesisUtterance(`Punch ${punchData.punch_type} recorded`);
+                window.speechSynthesis.speak(msg);
+
+                // Reset after delay
+                setTimeout(() => {
+                    statusDiv.className = 'status waiting';
+                    statusDiv.textContent = 'Ready to punch';
+                    resultCard.classList.remove('show');
+                    punchBtn.disabled = false;
+                }, 5000);
+
             } catch (error) {
-                spinner.style.display = 'none';
-                punchButton.disabled = false;
                 statusDiv.className = 'status error';
                 statusDiv.textContent = error.message || 'Connection error';
-                
+                punchBtn.disabled = false;
+
+                const msg = new SpeechSynthesisUtterance("Error");
+                window.speechSynthesis.speak(msg);
+
+                // Reset after delay
+                setTimeout(() => {
+                    statusDiv.className = 'status waiting';
+                    statusDiv.textContent = 'Ready to punch';
+                }, 5000);
+            }
+        }
+
+        document.getElementById('devicePunchBtn').addEventListener('click', devicePunch);
+
+        // ========== FINGERPRINT PUNCH MODE ==========
+        function initFingerprintMode() {
+            checkAutopunchStatus();
+            // Start polling
+            setInterval(checkAutopunchStatus, 5000);
+            setInterval(checkAutopunchResult, 1000);
+        }
+
+        async function fingerprintPunch() {
+            const statusDiv = document.getElementById('fpStatus');
+            const punchBtn = document.getElementById('fpPunchBtn');
+            const resultCard = document.getElementById('fpResultCard');
+
+            statusDiv.className = 'status processing';
+            statusDiv.textContent = 'Scanning fingerprint...';
+            punchBtn.disabled = true;
+            resultCard.classList.remove('show');
+
+            try {
+                const response = await fetch('/api/punch', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = 'Punch Recorded!';
+
+                    document.getElementById('fpUserName').textContent = data.user_name;
+                    const typeEl = document.getElementById('fpPunchType');
+                    typeEl.textContent = data.punch_type;
+                    typeEl.className = data.punch_type === 'IN' ? 'punch-type-in' : 'punch-type-out';
+                    document.getElementById('fpMatchScore').textContent = data.match_score;
+
+                    resultCard.classList.add('show');
+
+                    const msg = new SpeechSynthesisUtterance(`Punch ${data.punch_type} recorded`);
+                    window.speechSynthesis.speak(msg);
+                } else {
+                    throw new Error(data.message || 'Fingerprint not recognized');
+                }
+
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = error.message || 'Scan failed';
+
                 const msg = new SpeechSynthesisUtterance("Error");
                 window.speechSynthesis.speak(msg);
             }
-        }
-        
-        function showSuccess(data) {
-            statusDiv.className = 'status success';
-            statusDiv.textContent = '✓ Punch Recorded!';
-            
-            userName.textContent = data.user_name;
-            punchType.textContent = data.punch_type;
-            punchType.className = data.punch_type === 'IN' ? 'punch-type-in' : 'punch-type-out';
-            matchScore.textContent = data.match_score;
-            
-            resultCard.classList.add('show');
-            
+
             setTimeout(() => {
-                resetStatus();
+                statusDiv.className = 'status waiting';
+                statusDiv.textContent = autopunchEnabled ?
+                    'Auto-punch active - just place your finger' :
+                    'Place your finger on the scanner';
+                resultCard.classList.remove('show');
+                punchBtn.disabled = false;
             }, 5000);
         }
-        
-        function showError(message) {
-            statusDiv.className = 'status error';
-            statusDiv.textContent = '✗ ' + message;
-            
-            setTimeout(() => {
-                resetStatus();
-            }, 3000);
-        }
-        
-        function resetStatus() {
-            statusDiv.className = 'status waiting';
-            statusDiv.textContent = autopunchEnabled ? 
-                'Auto-punch active - just place your finger' : 
-                'Place your finger to punch in or out';
-            resultCard.classList.remove('show');
-            punchButton.disabled = false;
-        }
-        
-        punchButton.addEventListener('click', punch);
-        
-        // Check auto-punch status
+
+        document.getElementById('fpPunchBtn').addEventListener('click', fingerprintPunch);
+
+        // Auto-punch status check
         async function checkAutopunchStatus() {
+            if (currentMode !== 'fingerprint') return;
+
             try {
                 const response = await fetch('/api/autopunch/status');
                 const data = await response.json();
-                
+
                 autopunchEnabled = data.enabled;
-                
+                const indicator = document.getElementById('autopunchIndicator');
+                const punchBtn = document.getElementById('fpPunchBtn');
+                const statusDiv = document.getElementById('fpStatus');
+
                 if (data.enabled) {
-                    autopunchIndicator.classList.add('active');
+                    indicator.classList.add('active');
                     punchBtn.classList.add('hidden');
-                    if (status.className === 'status waiting') {
-                        status.textContent = 'Auto-punch active - just place your finger';
+                    if (statusDiv.className === 'status waiting') {
+                        statusDiv.textContent = 'Auto-punch active - just place your finger';
                     }
                 } else {
-                    autopunchIndicator.classList.remove('active');
+                    indicator.classList.remove('active');
                     punchBtn.classList.remove('hidden');
-                    if (status.className === 'status waiting') {
-                        status.textContent = 'Place your finger to punch in or out';
+                    if (statusDiv.className === 'status waiting') {
+                        statusDiv.textContent = 'Place your finger on the scanner';
                     }
                 }
             } catch (error) {
                 console.log('Could not check autopunch status');
             }
         }
-        
-        // Poll for new auto-punch results
+
+        // Poll for auto-punch results
         async function checkAutopunchResult() {
-            if (!autopunchEnabled) return;
-            
+            if (!autopunchEnabled || currentMode !== 'fingerprint') return;
+
             try {
                 const response = await fetch('/api/autopunch/last-result');
                 const data = await response.json();
-                
-                // Only show if it's a new result
+
                 if (data.timestamp > lastResultTimestamp && data.timestamp > 0) {
                     lastResultTimestamp = data.timestamp;
-                    
+
+                    const statusDiv = document.getElementById('fpStatus');
+                    const resultCard = document.getElementById('fpResultCard');
+
                     if (data.success) {
-                        showSuccess({
-                            user_name: data.user_name,
-                            punch_type: data.punch_type,
-                            match_score: data.match_score
-                        });
+                        statusDiv.className = 'status success';
+                        statusDiv.textContent = 'Punch Recorded!';
+
+                        document.getElementById('fpUserName').textContent = data.user_name;
+                        const typeEl = document.getElementById('fpPunchType');
+                        typeEl.textContent = data.punch_type;
+                        typeEl.className = data.punch_type === 'IN' ? 'punch-type-in' : 'punch-type-out';
+                        document.getElementById('fpMatchScore').textContent = data.match_score;
+
+                        resultCard.classList.add('show');
+
+                        const msg = new SpeechSynthesisUtterance(`Punch ${data.punch_type} recorded`);
+                        window.speechSynthesis.speak(msg);
+
+                        setTimeout(() => {
+                            statusDiv.className = 'status waiting';
+                            statusDiv.textContent = 'Auto-punch active - just place your finger';
+                            resultCard.classList.remove('show');
+                        }, 5000);
                     } else {
-                        showError(data.message);
+                        statusDiv.className = 'status error';
+                        statusDiv.textContent = data.message || 'Not recognized';
+
+                        setTimeout(() => {
+                            statusDiv.className = 'status waiting';
+                            statusDiv.textContent = 'Auto-punch active - just place your finger';
+                        }, 3000);
                     }
                 }
             } catch (error) {
                 console.log('Error checking autopunch result');
             }
         }
-        
-        // Initialize
-        checkAutopunchStatus();
-        
-        // Check autopunch status every 5 seconds
-        setInterval(checkAutopunchStatus, 5000);
-        
-        // Check for new results every 1 second when autopunch is active
-        setInterval(checkAutopunchResult, 1000);
     </script>
 </body>
 </html>

@@ -299,14 +299,67 @@ async def delete_user(user_id: int, token: str):
     """Delete a user permanently."""
     if not verify_token(token):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-    
+
     config = get_config()
     db = Database(config.database_path)
-    
+
     success = await db.delete_user(user_id)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
-        
+
     logger.info(f"User {user_id} deleted")
-    
+
+    return {"success": True}
+
+
+class DeviceResponse(BaseModel):
+    id: int
+    user_id: int
+    user_name: str
+    user_code: str
+    name: str
+    token: str
+    created_at: datetime
+
+
+@router.get("/devices", response_model=List[DeviceResponse])
+async def list_devices(token: str):
+    """List all enrolled devices."""
+    if not verify_token(token):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    config = get_config()
+    db = Database(config.database_path)
+
+    devices = await db.list_devices()
+
+    return [
+        DeviceResponse(
+            id=device.id,
+            user_id=device.user_id,
+            user_name=device.user.name if device.user else "Unknown",
+            user_code=device.user.employee_code if device.user else "Unknown",
+            name=device.name,
+            token=device.token,
+            created_at=device.created_at
+        )
+        for device in devices
+    ]
+
+
+@router.delete("/devices/{device_id}")
+async def delete_device(device_id: int, token: str):
+    """Delete a device."""
+    if not verify_token(token):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    config = get_config()
+    db = Database(config.database_path)
+
+    success = await db.delete_device(device_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    logger.info(f"Device {device_id} deleted")
+
     return {"success": True}

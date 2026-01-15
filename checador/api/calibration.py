@@ -47,20 +47,37 @@ async def video_stream():
     return Response(content=jpeg, media_type="image/jpeg")
 
 
+@router.get("/roi")
+async def get_roi():
+    """Get current ROI settings."""
+    config = get_config()
+    return {
+        "x": config.camera.roi_x,
+        "y": config.camera.roi_y,
+        "width": config.camera.roi_width,
+        "height": config.camera.roi_height
+    }
+
+
 @router.post("/roi")
 async def set_roi(roi: ROIRequest):
     """Set camera ROI - validation happens automatically via pydantic."""
     config = get_config()
-    
+
     # Update config
     config.camera.roi_x = roi.x
     config.camera.roi_y = roi.y
     config.camera.roi_width = roi.width
     config.camera.roi_height = roi.height
-    
-    # Save to file
-    config.save()
-    
-    logger.info(f"ROI updated: ({roi.x}, {roi.y}, {roi.width}, {roi.height})")
-    
-    return {"success": True, "message": "ROI saved"}
+
+    # Save to file with error handling
+    try:
+        config.save()
+        logger.info(f"ROI updated: ({roi.x}, {roi.y}, {roi.width}, {roi.height})")
+        return {"success": True, "message": "ROI saved"}
+    except PermissionError as e:
+        logger.error(f"Permission denied saving config: {e}")
+        return {"success": False, "message": f"Permission denied: cannot write to config file"}
+    except Exception as e:
+        logger.error(f"Error saving config: {e}")
+        return {"success": False, "message": f"Error saving config: {str(e)}"}
